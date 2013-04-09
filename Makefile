@@ -5,7 +5,7 @@ OBJ = $(SRC:.c=.o)
 	$(CC) $(CFLAGS) -Iinclude -c $^ -o $@
 
 rackmate: $(OBJ)
-	$(CC) $(LDFLAGS) -o $@ -llua -rpath lib $^
+	$(CC) $(LDFLAGS) -o $@ -rpath lib $^
 
 .PHONY: clean
 clean:
