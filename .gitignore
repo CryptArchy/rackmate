@@ -1,3 +1,6 @@
 /rackmate
-*.o
+/.make
+!/.make/conf.c
 .DS_Store
+/keys.c
+/vendor/underscore
