@@ -1,0 +1,11 @@
+#!/usr/bin/ruby
+
+ARGV.each do |lua|
+    if lua == ARGV.last
+        puts File.read(lua)
+    else
+        puts "package.preload['#{File.basename(lua, '.lua')}'] = (function (...)"
+        puts File.read(lua)
+        puts "end)"
+    end
+end

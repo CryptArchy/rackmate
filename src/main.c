@@ -123,7 +123,23 @@ static int lua_string_trim(lua_State *L) {
 
 
 ///////////////////////////////////////////////////////////////////////// main
+#ifdef RACKIT_GUI
+#ifdef __APPLE__
+int NSApplicationMain(int, const char**);
+
+int main(int argc, const char **argv) {
+    return NSApplicationMain(argc, argv);
+}
+#endif
+
+int lua_thread_loop(const char *MAIN_LUA_PATH) {
+
+#else
+
+#define MAIN_LUA_PATH "src/main.lua"
 int main(int argc, char **argv) {
+
+#endif
     lua_State *L = lua_open();
     luaL_openlibs(L);
 
@@ -152,11 +168,14 @@ int main(int argc, char **argv) {
 
     lua_pushcfunction(L, lua_backtrace);
 
-    int rv = luaL_loadfile(L, "src/main.lua");
+    int rv = luaL_loadfile(L, MAIN_LUA_PATH);
     if (rv) {
         fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return rv;
     } else {
-        return lua_pcall(L, 0, 0, lua_gettop(L) - 1);
+        rv = lua_pcall(L, 0, 0, lua_gettop(L) - 1);
     }
+#ifdef RACKIT_GUI
+    lua_close(L);
+#endif
+    return rv;
 }

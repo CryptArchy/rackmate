@@ -1,6 +1,8 @@
 /rackmate
+/Rackmate.app
 /.make
 !/.make/conf.c
 .DS_Store
 /keys.c
 /vendor/underscore
+/vendor/SPMediaKeyTap
