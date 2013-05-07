@@ -16,6 +16,7 @@
 
 int luaopen_spotify(lua_State *L);
 int luaopen_websocket(lua_State *L);
+int luaopen_cjson(lua_State *L);
 
 
 //////////////////////////////////////////////////////////////////////// utils
@@ -140,6 +141,11 @@ int main(int argc, char **argv) {
         { "_exit", lua_xp__exit },
         {NULL,  NULL}
     });
+
+    lua_getfield(L, LUA_GLOBALSINDEX, "package");
+    lua_getfield(L, -1, "preload");
+    lua_pushcfunction(L, luaopen_cjson);
+    lua_setfield(L, -2, "cjson");
 
     luaopen_spotify(L);
     luaopen_websocket(L);

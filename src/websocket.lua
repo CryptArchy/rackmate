@@ -1,11 +1,7 @@
 local c = require'websocket.c'
 local ipairs, table, string, print, type, require, pairs, WebSocketClient = ipairs, table, string, print, type, require, pairs, WebSocketClient
-local JSON = require'JSON'
+local JSON = require'cjson'
 local _ = require'underscore'
--- because LUA arrays are the same as LUA tables, this sets a flag so that
--- if/when we re-encode the types are (for sure) preserved.
-JSON.strictTypes = true
-
 module(...)
 
 clients = {}
@@ -15,12 +11,12 @@ function bind()
 end
 
 local function send_json(sock, data)
-   data = JSON:encode(data)
+   data = JSON.encode(data)
    sock:write(c.frame_header(#data)..data)
 end
 
 function broadcast(data)
-   data = JSON:encode(data)
+   data = JSON.encode(data)
    data = c.frame_header(#data)..data
    for i, client in ipairs(clients) do
       client:write(data)
@@ -28,7 +24,7 @@ function broadcast(data)
 end
 
 local function handle_message(sock, rawdata, callback)
-   local json = JSON:decode(c.unmask(rawdata))
+   local json = JSON.decode(c.unmask(rawdata))
    if type(json) == 'string' then
       callback(json, nil, function(data)
          send_json(sock, data)

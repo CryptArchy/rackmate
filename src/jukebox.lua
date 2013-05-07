@@ -1,5 +1,5 @@
 local table, io, type, os, require = table, io, type, os, require
-local JSON = require'JSON'
+local JSON = require'cjson'
 local resolver = require'resolver'
 local spotify = require'spotify'
 local Tape = require'tape'
@@ -14,7 +14,7 @@ subindex = 1
 
 tapes = (function()
    local f = io.open(TAPES_JSON_PATH, "r")
-   return (f and JSON:decode(f:read("*all"))) or {}
+   return (f and JSON.decode(f:read("*all"))) or {}
 end)()
 _.each(tapes, function(tape) Tape.new(tape) end)
 
@@ -40,7 +40,7 @@ end
 local function save()
    if os.fork() == 0 then
       local f = io.open(TAPES_JSON_PATH, "w")
-      f:write(JSON:encode(tapes))
+      f:write(JSON.encode(tapes))
       f:close()
       os._exit()
    end

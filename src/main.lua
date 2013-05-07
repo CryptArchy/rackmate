@@ -35,7 +35,7 @@ websocket.listen{
             handlers[method](data, reply)
          end)
       elseif data then
-         print("Unhandled: "..method..": "..require'JSON':encode(data))
+         print("Unhandled: "..method..": "..require'cjson'.encode(data))
       else
          print("Unhandled: "..method);
       end
