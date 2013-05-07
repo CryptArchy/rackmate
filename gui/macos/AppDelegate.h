@@ -1,4 +1,5 @@
 @class MBInsomnia;
+@class WebSocket;
 
 
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
@@ -13,6 +14,8 @@
     IBOutlet NSMenuItem *pauseMenuItem;
 
     MBInsomnia *insomnia;
+    WebSocket *ws;
+    NSThread *thread;
 }
 
 @end

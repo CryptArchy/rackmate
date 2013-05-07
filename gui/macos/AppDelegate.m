@@ -3,8 +3,13 @@
 #import "AppDelegate.h"
 #import "MBInsomnia.h"
 #import "SPMediaKeyTap.h"
+#import "WebSocket.h"
+#import "JSONKit.h"
 
 int lua_thread_loop();
+
+@interface AppDelegate () <WebSocketDelegate>
+@end
 
 
 @implementation AppDelegate
@@ -14,7 +19,12 @@ int lua_thread_loop();
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
-    [self performSelectorInBackground:@selector(luaInBackground) withObject:nil];
+    WebSocketConnectConfig *conf = [WebSocketConnectConfig configWithURLString:@"ws://localhost:13581" origin:nil protocols:@[@"GUI"] tlsSettings:nil headers:nil verifySecurityKey:NO extensions:nil];
+    ws = [[WebSocket alloc] initWithConfig:conf delegate:self];
+
+    thread = [[NSThread alloc] initWithTarget:self selector:@selector(luaInBackground) object:nil];
+    thread.threadPriority = 1.0;
+    [thread start];
 
     statusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:29] retain];
     statusItem.highlightMode = YES;
@@ -52,9 +62,51 @@ int lua_thread_loop();
     insomnia = [MBInsomnia new];
 }
 
+- (void)didOpen {
+    statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
+}
+
+- (void)didClose:(NSUInteger)statuscode message:(NSString *)msg error:(NSError *)error {
+    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
+    NSLog(@"%@", error);
+}
+
+- (void)didReceiveError:(NSError *)error {
+    NSLog(@"%@", error);
+}
+
+- (void)didReceiveTextMessage:(NSString *)msg {
+    @try {
+        NSDictionary *o = msg.objectFromJSONString;
+        BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
+        artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = stopped;
+        if (!stopped) {
+            id track = o[@"tapes"][o[@"index"]][@"tracks"][o[@"subindex"]];
+            artistMenuItem.title = track[@"artist"];
+            trackMenuItem.title = track[@"title"];
+        }
+    } @catch (id e) {
+        NSLog(@"%@", e);
+        artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = YES;
+    }
+}
+
+- (void)didReceiveBinaryMessage:(NSData *)msg {
+
+}
+
+- (void)doopen {
+    [ws performSelector:@selector(open) withObject:nil afterDelay:5];
+}
+
 - (void)luaInBackground {
-    id s = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"rackmate.lua"];
-    lua_thread_loop([s UTF8String]);
+    id pool = [NSAutoreleasePool new];
+    id nspath = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"rackmate.lua"];
+    char path[[nspath lengthOfBytesUsingEncoding:NSUTF8StringEncoding]];
+    strcpy(path, [nspath UTF8String]);
+    [self performSelectorOnMainThread:@selector(doopen) withObject:nil waitUntilDone:NO];
+    [pool release];
+    lua_thread_loop(path);
 }
 
 - (void)applicationWillTerminate:(NSNotification *)note {
@@ -67,7 +119,7 @@ int lua_thread_loop();
 }
 
 - (void)onSleepNotification:(NSNotification *)note {
-    //TODO pause
+    //[ws send:@"\"pause\""];
 }
 
 - (IBAction)openHomeURL:(id)sender {
@@ -75,7 +127,7 @@ int lua_thread_loop();
 }
 
 - (IBAction)pause:(NSMenuItem *)menuItem {
-
+    //[ws send:@"{\"play\": \"toggle\"}"];
 }
 
 -(void)mediaKeyTap:(SPMediaKeyTap *)keyTap receivedMediaKeyEvent:(NSEvent *)event;

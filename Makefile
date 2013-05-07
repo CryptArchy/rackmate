@@ -22,7 +22,7 @@ rackmate: .make/include/rackit/conf.h $(OBJS) .make/$(UNDERSCORE_SHA)
 clean:
 	rm -rf $(DIRS) $(OBJS) $(DEPS) Rackmate.app rackmate
 dist-clean:
-	rm -rf $(filter-out .make/conf.c .make/squish, $(wildcard .make/*)) vendor/underscore vendor/SPMediaKeyTap Rackmate.app rackmate
+	rm -rf $(filter-out .make/conf.c .make/squish, $(wildcard .make/*)) vendor/underscore vendor/SPMediaKeyTap vendor/JSONKit Rackmate.app rackmate
 test:
 	@busted -m 'src/?.lua;include/?.lua' spec
 
@@ -50,15 +50,22 @@ CNTS := Rackmate.app/Contents
 LUAS := $(wildcard src/*.lua) $(wildcard include/*.lua)
 IMGS := $(patsubst gui/macos/%.png, $(CNTS)/Resources/%.png, $(wildcard gui/macos/*.png))
 
-macos: vendor/SPMediaKeyTap $(CNTS)/MacOS/Rackmate $(CNTS)/Info.plist \
-       $(CNTS)/Resources/MainMenu.nib $(CNTS)/MacOS/libspotify.dylib \
+macos: .make/include/rackit/conf.h \
+	   vendor/SPMediaKeyTap vendor/JSONKit .make/$(UNDERSCORE_SHA) \
        $(CNTS)/MacOS/rackmate.lua \
+       $(CNTS)/MacOS/Rackmate $(CNTS)/Info.plist \
+       $(CNTS)/Resources/MainMenu.nib \
+       $(CNTS)/MacOS/libspotify.dylib \
        $(IMGS)
 
 # Carbon is for SPMediaKeyTap, IOKit is for MBInsomnia
-$(CNTS)/MacOS/Rackmate: $(SRCS) gui/macos/*.m vendor/SPMediaKeyTap/SPMediaKeyTap.m | $(CNTS)/MacOS
-	$(CC) $(CPPFLAGS) -DRACKIT_GUI -Ivendor/SPMediaKeyTap \
-		  $(LDFLAGS) -framework Cocoa -framework IOKit -framework Carbon -ObjC -o $@ $^
+# -Wno-deprecated-objc-isa-usage if for JSONKit
+$(CNTS)/MacOS/Rackmate: $(SRCS) gui/macos/*.m \
+        vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m \
+        vendor/UnittWebSocketClient/*.m | $(CNTS)/MacOS
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fno-objc-arc -DRACKIT_GUI -Wno-deprecated-objc-isa-usage \
+-Ivendor/SPMediaKeyTap -Ivendor/UnittWebSocketClient -Ivendor/JSONKit \
+$(LDFLAGS) -framework Cocoa -framework IOKit -framework Carbon -o $@ $^
 	xcrun install_name_tool -change @rpath/libspotify.dylib @executable_path/libspotify.dylib $(CNTS)/MacOS/Rackmate
 
 $(CNTS)/Info.plist: gui/macos/Info.plist
@@ -71,12 +78,13 @@ $(CNTS)/MacOS/libspotify.dylib: lib/libspotify.dylib
 	cp $< $@
 $(CNTS)/Resources/%.png: gui/macos/%.png
 	cp $< $@
-$(CNTS)/MacOS/rackmate.lua: $(filter-out src/main.lua, $(wildcard src/*.lua)) $(wildcard include/*.lua) src/main.lua
+$(CNTS)/MacOS/rackmate.lua: $(filter-out src/main.lua, $(wildcard src/*.lua)) $(wildcard include/*.lua) src/main.lua | $(CNTS)/MacOS
 	.make/squish $^ > $@
 
 vendor/SPMediaKeyTap:
 	git clone https://github.com/rackit/SPMediaKeyTap $@
-
+vendor/JSONKit:
+	git clone https://github.com/johnezang/JSONKit $@
 
 ######################################################################## notes
 # * GNU Make sets CC itself if none is set here OR the environment
