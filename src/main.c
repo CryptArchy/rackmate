@@ -3,6 +3,7 @@
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,8 @@
 int luaopen_spotify(lua_State *L);
 int luaopen_websocket(lua_State *L);
 int luaopen_cjson(lua_State *L);
+
+pthread_t rackit_lua_thread;
 
 
 //////////////////////////////////////////////////////////////////////// utils
@@ -134,12 +137,15 @@ int main(int argc, const char **argv) {
 
 int lua_thread_loop(const char *MAIN_LUA_PATH) {
 
+
 #else
 
 #define MAIN_LUA_PATH "src/main.lua"
 int main(int argc, char **argv) {
 
 #endif
+    rackit_lua_thread = pthread_self();
+
     lua_State *L = lua_open();
     luaL_openlibs(L);
 

@@ -12,6 +12,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+extern pthread_t rackit_lua_thread;
+
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -115,16 +117,13 @@ static void sp_error_occurred(sp_session *session, sp_error error) {
 }
 
 static void notify_main_thread(sp_session *session) {
-    #ifdef __APPLE__
     // for some reason this gets called on the main thread during login
     // this breaks our start up sequence as the ctc socket is not yet listening
-    if (pthread_main_np()) {
+    if (pthread_self() == rackit_lua_thread) {
         int t;
         sp_session_process_events(session, &t);
-        return;
-    }
-    #endif
-    tellmate("ctc:spotify.process_events");
+    } else
+        tellmate("ctc:spotify.process_events");
 }
 
 static void end_of_track(sp_session *session) {
@@ -167,7 +166,6 @@ sp_session_callbacks session_callbacks = {
 
 
 static void logout() {
-    fprintf(stderr, "logout\n");
     sp_session_logout(session);
     sp_session_release(session);
     session = NULL;
@@ -176,7 +174,7 @@ static void logout() {
 static void signaled(int sig) {
     signal(sig, SIG_DFL);
     logout();
-    kill(getpid(), SIGINT);
+    raise(SIGINT);
 }
 
 static void search_complete(sp_search *search, void *userdata) {
