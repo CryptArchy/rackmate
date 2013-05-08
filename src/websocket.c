@@ -80,6 +80,7 @@ static int lws_select(lua_State *L) {
     int fds[256]; fds[0] = sockfd;
     int nfds = 1;
 
+    // iterate over Lua `clients` and assemble fdset and maxfd for select
     lua_push_clients(L);
     lua_pushnil(L);
     while (lua_next(L, -2)) {

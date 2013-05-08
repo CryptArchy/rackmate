@@ -127,61 +127,59 @@ static int lua_string_trim(lua_State *L) {
 
 ///////////////////////////////////////////////////////////////////////// main
 #ifdef RACKIT_GUI
-#ifdef __APPLE__
-int NSApplicationMain(int, const char**);
+    #ifdef __APPLE__
+        int NSApplicationMain(int, const char**);
 
-int main(int argc, const char **argv) {
-    return NSApplicationMain(argc, argv);
-}
-#endif
+        int main(int argc, const char **argv) {
+            return NSApplicationMain(argc, argv);
+        }
+    #endif
 
-int lua_thread_loop(const char *MAIN_LUA_PATH) {
-
-
+    int lua_thread_loop(const char *MAIN_LUA_PATH) {
 #else
+    #define MAIN_LUA_PATH "src/main.lua"
 
-#define MAIN_LUA_PATH "src/main.lua"
-int main(int argc, char **argv) {
-
+    int main(int argc, char **argv) {
 #endif
-    rackit_lua_thread = pthread_self();
+        rackit_lua_thread = pthread_self();
 
-    lua_State *L = lua_open();
-    luaL_openlibs(L);
+        lua_State *L = lua_open();
+        luaL_openlibs(L);
 
-    luaL_register(L, LUA_STRLIBNAME, (luaL_reg[]){
-        {"trim", lua_string_trim},
-        {NULL,  NULL}
-    });
+        luaL_register(L, LUA_STRLIBNAME, (luaL_reg[]){
+            {"trim", lua_string_trim},
+            {NULL,  NULL}
+        });
 
-    luaL_register(L, LUA_OSLIBNAME, (luaL_reg[]){
-        { "homedir", lua_xp_homedir },
-        { "mkpath", lua_xp_mkpath },
-        { "access", lua_xp_access },
-        { "sysdir", lua_xp_sysdir },
-        { "fork", lua_xp_fork },
-        { "_exit", lua_xp__exit },
-        {NULL,  NULL}
-    });
+        luaL_register(L, LUA_OSLIBNAME, (luaL_reg[]){
+            { "homedir", lua_xp_homedir },
+            { "mkpath", lua_xp_mkpath },
+            { "access", lua_xp_access },
+            { "sysdir", lua_xp_sysdir },
+            { "fork", lua_xp_fork },
+            { "_exit", lua_xp__exit },
+            {NULL,  NULL}
+        });
 
-    lua_getfield(L, LUA_GLOBALSINDEX, "package");
-    lua_getfield(L, -1, "preload");
-    lua_pushcfunction(L, luaopen_cjson);
-    lua_setfield(L, -2, "cjson");
+        lua_getfield(L, LUA_GLOBALSINDEX, "package");
+        lua_getfield(L, -1, "preload");
+        lua_pushcfunction(L, luaopen_cjson);
+        lua_setfield(L, -2, "cjson");
 
-    luaopen_spotify(L);
-    luaopen_websocket(L);
+        luaopen_spotify(L);
+        luaopen_websocket(L);
 
-    lua_pushcfunction(L, lua_backtrace);
+        lua_pushcfunction(L, lua_backtrace);
 
-    int rv = luaL_loadfile(L, MAIN_LUA_PATH);
-    if (rv) {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-    } else {
-        rv = lua_pcall(L, 0, 0, lua_gettop(L) - 1);
+        int rv = luaL_loadfile(L, MAIN_LUA_PATH);
+        if (rv) {
+            fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        } else {
+            rv = lua_pcall(L, 0, 0, lua_gettop(L) - 1);
+        }
+
+    #ifdef RACKIT_GUI
+        lua_close(L);
+    #endif
+        return rv;
     }
-#ifdef RACKIT_GUI
-    lua_close(L);
-#endif
-    return rv;
-}
