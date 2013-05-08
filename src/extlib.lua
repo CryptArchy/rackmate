@@ -18,8 +18,7 @@ end
 
 local function mk(sysdirkey, uid)
    local d = os.homedir()..'/'..os.sysdir(sysdirkey)..'/'..(uid or '')
-   if not os.access(d) then
-      os.mkpath(d) end -- aborts on failure
+   os.mkpath(d)
    return d
 end
 

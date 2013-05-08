@@ -24,7 +24,7 @@ pthread_t rackit_lua_thread;
 
 //////////////////////////////////////////////////////////////////////// utils
 static bool mkpath(const char *path) {
-    char opath[4096];
+    char opath[4096]; //TODO use Lua so any length is okay! Or maybe C99 variable length arrays
     strncpy(opath, path, sizeof(opath));
     size_t len = strlen(opath);
     if (opath[len - 1] == '/')
@@ -32,11 +32,10 @@ static bool mkpath(const char *path) {
     for (char *p = opath; *p; p++)
         if (*p == '/') {
             *p = '\0';
-            if (!mkdir(opath, S_IRWXU))
-                return false;
-            *p = '/';
+            mkdir(opath, S_IRWXU); // ignore errors here, report for final
+            *p = '/';              // mkdir only: easier code; works the same
         }
-    return mkdir(opath, S_IRWXU);
+    return mkdir(opath, S_IRWXU) == 0;
 }
 
 static const char *homepath() {
@@ -87,16 +86,14 @@ static int lua_xp_homedir(lua_State *L) {
 }
 
 static int lua_xp_mkpath(lua_State *L) {
-    const char *path = luaL_checkstring(L, 1);
-    if (!mkpath(path))
-        luaL_error(L, "Failed to mkpath: %s: %s", path, strerror(errno));
-    return 0;
-}
-
-static int lua_xp_access(lua_State *L) {
-    const char *path = luaL_checkstring(L, 1);
-    lua_pushboolean(L, access(path, R_OK | W_OK));
-    return 1;
+    const char *path = lua_tostring(L, 1);
+    struct stat s;
+    int rv = stat(path, &s);
+    if ((rv == -1 && errno == ENOENT && mkpath(path)) || (rv == 0 && s.st_mode & S_IFDIR && access(path, R_OK | X_OK | W_OK) == 0)) {
+        lua_pushboolean(L, true);
+        return 1;
+    } else
+        return luaL_error(L, "Failed to mkpath: %s: %s", path, strerror(errno));
 }
 
 static int lua_xp_sysdir(lua_State *L) {
@@ -154,7 +151,6 @@ static int lua_string_trim(lua_State *L) {
         luaL_register(L, LUA_OSLIBNAME, (luaL_reg[]){
             { "homedir", lua_xp_homedir },
             { "mkpath", lua_xp_mkpath },
-            { "access", lua_xp_access },
             { "sysdir", lua_xp_sysdir },
             { "fork", lua_xp_fork },
             { "_exit", lua_xp__exit },
