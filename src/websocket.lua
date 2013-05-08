@@ -44,19 +44,20 @@ end
 function listen(callbacks)
    c.listen()
    repeat until c.select(function(sock, handshake)
-      local key = _.chain(handshake):split("\r\n"):map(function(line)
-         return _.split(line, ':')
-      end):find(function(parts)
-         return parts[1] == 'Sec-WebSocket-Key'
-      end):value()[2]:trim()
-
-      key = c.sha1base64(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+      local headers = _.chain(handshake):split("\r\n"):compact():map(function(line)
+         return _.split(line, '%s*:%s*')
+      end):reduce(function(memo, parts)
+         memo[parts[1]] = parts[2]
+         return memo
+      end, {}):value()
+      local accept = c.sha1base64(headers['Sec-WebSocket-Key']..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
 
       sock:write("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"..
                  "Upgrade: websocket\r\n"..
                  "Connection: Upgrade\r\n"..
-                 "Sec-WebSocket-Accept: "..key.."\r\n\r\n")
+                 "Sec-WebSocket-Accept: "..accept.."\r\n\r\n")
 
+      sock.protocol = headers['Sec-WebSocket-Protocol']
       clients[sock.sockfd] = sock; --TODO do in the C
 
       send_json(sock, callbacks.onconnect())
