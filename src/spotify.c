@@ -220,7 +220,8 @@ static int lua_spotify_search(lua_State *L) {
 static int lua_spotify_process_events(lua_State *L) {
     process_events_L = L;
     int timeout = 0;
-    sp_session_process_events(session, &timeout);
+    while (timeout == 0)
+        sp_session_process_events(session, &timeout);
     return 0;
 }
 
