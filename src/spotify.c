@@ -12,8 +12,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-extern pthread_t rackit_lua_thread;
-
 
 #include <arpa/inet.h>
 #include <netinet/in.h>

@@ -19,8 +19,6 @@ int luaopen_spotify(lua_State *L);
 int luaopen_websocket(lua_State *L);
 int luaopen_cjson(lua_State *L);
 
-pthread_t rackit_lua_thread;
-
 
 //////////////////////////////////////////////////////////////////////// utils
 static bool mkpath(const char *path) {
@@ -138,8 +136,6 @@ static int lua_string_trim(lua_State *L) {
 
     int main(int argc, char **argv) {
 #endif
-        rackit_lua_thread = pthread_self();
-
         lua_State *L = lua_open();
         luaL_openlibs(L);
 
