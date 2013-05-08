@@ -117,14 +117,7 @@ static void sp_error_occurred(sp_session *session, sp_error error) {
 }
 
 static void notify_main_thread(sp_session *session) {
-    // for some reason this gets called on the main thread during login
-    // if we tellmate, we block, as we use a non blocking write
-    // and if we call process_events directly, libspotify blocks in a mutex :P
-    // so instead we call process events ourselves after login below
-    if (pthread_self() != rackit_lua_thread)
-        tellmate("ctc:spotify.process_events");
-    else
-        fprintf(stderr, "SKIPPED CTC\n");
+    tellmate("ctc:spotify.process_events");
 }
 
 static void end_of_track(sp_session *session) {
@@ -287,9 +280,6 @@ static int lua_spotify_login(lua_State *L) {
     HERR(sp_session_create(&spconfig, &session));
     sp_session_set_connection_rules(session, SP_CONNECTION_RULE_NETWORK); // prevent offline sync
     sp_session_login(session, RACKMATE_USERNAME, RACKMATE_PASSWORD, false, NULL);
-
-    lua_spotify_process_events(L); // WHY: see notify_main_thread
-
     return 0;
 }
 

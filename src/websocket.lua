@@ -5,10 +5,8 @@ local _ = require'underscore'
 module(...)
 
 clients = {}
-
-function bind()
-   c.bind()
-end
+bind = c.bind
+listen = c.listen
 
 local function send_json(sock, data)
    data = JSON.encode(data)
@@ -41,8 +39,7 @@ local function handle_message(sock, rawdata, callback)
    end
 end
 
-function listen(callbacks)
-   c.listen()
+function select(callbacks)
    repeat until c.select(function(sock, handshake)
       local headers = _.chain(handshake):split("\r\n"):compact():map(function(line)
          return _.split(line, '%s*:%s*')

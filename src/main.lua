@@ -1,7 +1,11 @@
 require'websocket'
 websocket.bind()
+
 require'extlib'
 local Tape = require'tape'
+
+websocket.listen()
+
 require'spotify'.login()
 require'jukebox'
 
@@ -25,7 +29,7 @@ local handlers = {
    end
 }
 
-websocket.listen{
+websocket.select{
    onconnect = function()
       return jukebox.getstate()
    end,
