@@ -18,7 +18,7 @@ end
 function broadcast(data)
    data = JSON.encode(data)
    data = c.frame_header(#data)..data
-   for i, client in ipairs(clients) do
+   for fd, client in pairs(clients) do
       client:write(data)
    end
 end
