@@ -26,7 +26,8 @@ local handlers = {
             keepCallbackAlive = ii < #data.tracks
          }
       end)
-   end
+   end,
+   handshake = require'playlogger'.handshake
 }
 
 websocket.select{

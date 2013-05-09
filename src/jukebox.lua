@@ -4,6 +4,7 @@ local resolver = require'resolver'
 local spotify = require'spotify'
 local Tape = require'tape'
 local _ = require'underscore'
+local playlogger = require'playlogger'
 module(...)
 
 local TAPES_JSON_PATH = os.dir.support().."/tapes.json"
@@ -18,7 +19,7 @@ tapes = (function()
 end)()
 _.each(tapes, function(tape) Tape.new(tape) end)
 
-function current_track()
+function np()
    if #tapes > 0 then
       return tapes[index].tracks[subindex]
    else
@@ -26,7 +27,7 @@ function current_track()
    end
 end
 
-spotify.prefetch(current_track())
+spotify.prefetch(np())
 
 function getstate()
    return {
@@ -118,7 +119,7 @@ function next_resolvable_track()
 end
 
 local function actual_play()
-   resolver.resolve(current_track(), function(track, url)
+   resolver.resolve(np(), function(track, url)
       spotify.play(url, {
          next = function()
             return next_resolvable_track().partnerID
@@ -127,6 +128,7 @@ local function actual_play()
             sync_if_changes(function()
                state = 'stopped'
             end)
+            playlogger.ended()
          end,
          ontrack = function(url)
             sync_if_changes(function()
@@ -140,7 +142,14 @@ local function actual_play()
                   return index, subindex -- FIXME what TODO?
                end)()
             end)
-         end
+            playlogger.track(np())
+         end,
+         onpause = function()
+            playlogger.pause(np())
+         end,
+         onresume = function()
+            playlogger.resume(np())
+         end,
       })
    end)
 end
