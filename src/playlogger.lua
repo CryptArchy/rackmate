@@ -46,7 +46,15 @@ local function parse_uri(s)
 end
 
 function handshake(data)
-   local sock = websocket.connect(parse_uri(data.endpoint))
+   local sock = _(clients).find(function(client)
+      return client.user == data.userid
+   end)
+   if sock and sock.pass == data.passkey then
+      return
+   elseif sock then
+      sock:close() -- password changed, open a new playlogger
+   end
+   sock = websocket.connect(parse_uri(data.endpoint))
    sock.pass = data.passkey
    sock.user = data.userid
    table.insert(clients, sock)
