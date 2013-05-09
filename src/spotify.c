@@ -12,6 +12,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#define E_LUA_PCALL(p1, p2, p3) \
+    if (lua_pcall(p1, p2, p3, 0) != 0) { \
+        fprintf(stderr, "%s\n", lua_tostring(p1, -1)); \
+        lua_pop(p1, 1); \
+    }
+
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -54,7 +60,7 @@ static void log(sp_session *session, const char *message) {
     fputs(message, stderr);
 }
 
-static void ffs_go() {
+static void ffs_go(lua_State *L) {
     if (!fifo) {
         fifo = malloc(sizeof(audio_fifo_t));
         audio_init(fifo);
@@ -64,11 +70,19 @@ static void ffs_go() {
     duration = sp_track_duration(loaded_track) * 44100 / 1000;
     sp_session_player_load(session, loaded_track);
     sp_session_player_play(session, true);
+
+    sp_link *link = sp_link_create_from_track(loaded_track, 0);
+    char url[256];
+    int n = sp_link_as_string(link, url, sizeof(url));
+    sp_link_release(link);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, callback_ontrack);
+    lua_pushlstring(L, url, n);
+    E_LUA_PCALL(L, 1, 0);
 }
 
 static void metadata_updated(sp_session *session) {
     if (waiting_for_metadata) {
-        ffs_go();
+        ffs_go(process_events_L);
         waiting_for_metadata = false;
     }
 }
@@ -119,15 +133,18 @@ static void notify_main_thread(sp_session *session) {
 }
 
 static void end_of_track(sp_session *session) {
-    sp_track_release(loaded_track);
+    if (loaded_track)
+        sp_track_release(loaded_track);
     if (prefetched_track) {
         loaded_track = prefetched_track;
         if (sp_track_error(loaded_track) == SP_ERROR_OK) {
-            ffs_go();
-        } else
+            ffs_go(process_events_L);
+        } else {
+            fprintf(stderr, "Still waiting on metdata\n");
             waiting_for_metadata = true;
+        }
     } else {
-        fprintf(stderr, "No prefetched track");
+        fprintf(stderr, "No prefetched track\n");
         loaded_track = NULL;
     }
 }
@@ -209,7 +226,7 @@ static int lua_spotify_play(lua_State *L) {
     #define foo(token) \
         if (callback_ ## token) luaL_unref(L, LUA_REGISTRYINDEX, callback_ ## token); \
         lua_pushliteral(L, #token); \
-        lua_gettable(L, -1); \
+        lua_gettable(L, -2); \
         callback_ ## token = luaL_ref(L, LUA_REGISTRYINDEX)
     foo(next);
     foo(ontrack);
@@ -220,7 +237,7 @@ static int lua_spotify_play(lua_State *L) {
     sp_track_add_ref(loaded_track = sp_link_as_track(link));
     sp_link_release(link);
     if (sp_track_error(loaded_track) == SP_ERROR_OK) {
-        ffs_go();
+        ffs_go(L);
     } else
         waiting_for_metadata = true;
     return 0;
@@ -239,9 +256,8 @@ static int lua_spotify_prefetch(lua_State *L) {
 // used to get the next track for play, called from the main thread so that
 // Lua doesn’t segfault. Thus it being a public function and using tellmate()
 static int lua_spotify_spool(lua_State *L) {
-    fprintf(stderr, "spool\n");
     lua_rawgeti(L, LUA_REGISTRYINDEX, callback_next);
-    lua_call(L, 0, 1);
+    E_LUA_PCALL(L, 0, 1);
     lua_spotify_prefetch(L);
     return 0;
 }

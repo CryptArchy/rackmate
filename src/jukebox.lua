@@ -1,4 +1,4 @@
-local table, io, type, os, require = table, io, type, os, require
+local table, io, type, os, require, print, ipairs = table, io, type, os, require, print, ipairs
 local JSON = require'cjson'
 local resolver = require'resolver'
 local spotify = require'spotify'
@@ -103,19 +103,26 @@ function sync_if_changes(callback)
 end
 
 function next_resolvable_track()
+   local jj = subindex + 1
    for ii = index, #tapes do
-      for jj = subindex, #tapes[ii].tracks do
-         local track = tapes[ii].tracks[jj]
+      local tape = tapes[ii]
+      while jj <= #tape.tracks do
+         local track = tape.tracks[jj]
          local pid = track.partnerID
-         if pid == nil or pid ~= "unresolved" then return track end
+         if pid == nil or pid ~= "unresolved" then
+            return track end
+         jj = jj + 1
       end
+      jj = 1
    end
 end
 
 local function actual_play()
    resolver.resolve(current_track(), function(track, url)
       spotify.play(url, {
-         next = next_resolvable_track,
+         next = function()
+            return next_resolvable_track().partnerID
+         end,
          onexhaust = function()
             sync_if_changes(function()
                state = 'stopped'
