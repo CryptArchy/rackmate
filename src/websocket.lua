@@ -1,5 +1,7 @@
+local ipairs, table, string, print, type = ipairs, table, string, print, type
+local require, pairs, math = require, pairs, math
+local WebSocketClient = WebSocketClient
 local c = require'websocket.c'
-local ipairs, table, string, print, type, require, pairs, WebSocketClient = ipairs, table, string, print, type, require, pairs, WebSocketClient
 local JSON = require'cjson'
 local _ = require'underscore'
 module(...)
@@ -47,7 +49,7 @@ function select(callbacks)
          memo[parts[1]] = parts[2]
          return memo
       end, {}):value()
-      local accept = c.sha1base64(headers['Sec-WebSocket-Key']..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+      local accept = c.base64(c.sha1(headers['Sec-WebSocket-Key']..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
 
       sock:write("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"..
                  "Upgrade: websocket\r\n"..
@@ -76,4 +78,28 @@ function select(callbacks)
          sock:write(string.char(0x8a)..c.frame_header(#data)..data)
       end
    end)
+end
+
+function connect(host, port, path)
+   function upgrade_request()
+      function r() return c.htons(math.random(0, 0xfffffff)) end
+      local key = c.base64(r()..r()..r()..r())
+      return "GET "..path.." HTTP/1.1\r\n"..
+             "Host: "..host..":"..port.."\r\n"..
+             "Upgrade: websocket\r\n"..
+             "Connection: Upgrade\r\n"..
+             "Sec-WebSocket-Key: "..key.."\r\n"..
+             "Sec-WebSocket-Version: 13\r\n\r\n"
+   end
+   path = path or "/"
+   port = port or 80
+   local sock = c.connect(host, port)
+   sock:write(upgrade_request())
+   local rsp = sock:read()
+   return {
+      send = function(data)
+         data = JSON.encode(data)
+         sock:write(c.frame_header(#data, true --[[sets masked bit]])..c.mask(data))
+      end
+   }
 end

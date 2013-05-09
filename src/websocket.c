@@ -6,8 +6,10 @@
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -25,6 +27,18 @@ static void lua_push_clients(lua_State *L) {
     lua_gettable(L, -2);
     lua_remove(L, -2);
     luaL_checktype(L, -1, LUA_TTABLE);
+}
+
+static void lua_push_sock(lua_State *L, int fd) {
+    lua_newtable(L);
+    lua_newtable(L);
+    lua_pushliteral(L, "__index");
+    luaL_getmetatable(L, "WebSocketClient");
+    lua_settable(L, -3);
+    lua_setmetatable(L, -2);
+    lua_pushliteral(L, "sockfd");
+    lua_pushinteger(L, fd);
+    lua_settable(L, -3);
 }
 
 static int lws_bind(lua_State *L) {
@@ -55,21 +69,35 @@ static int lws_bind(lua_State *L) {
     return 0;
 }
 
+static int lws_connect(lua_State* L) {
+    int sockfd;
+    struct addrinfo hints = {
+        .ai_family = AF_INET, // use AF_INET6 to force IPv6
+        .ai_socktype = SOCK_STREAM
+    }, *servinfo, *p;
+    int rv = getaddrinfo(lua_tostring(L, 1), lua_tostring(L, 2), &hints, &servinfo);
+    if (rv != 0)
+        return luaL_error(L, "getaddrinfo: %s", strerror(errno));
+
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            perror("socket");
+            continue;
+        }
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd);
+            perror("connect");
+            continue;
+        }
+        break;
+    }
+    lua_push_sock(L, sockfd);
+    return 1;
+}
+
 static int lws_listen(lua_State *L) {
     listen(sockfd, 32 /*backlog queue size*/);
     return 0;
-}
-
-static void lua_push_sock(lua_State *L, int fd) {
-    lua_newtable(L);
-    lua_newtable(L);
-    lua_pushliteral(L, "__index");
-    luaL_getmetatable(L, "WebSocketClient");
-    lua_settable(L, -3);
-    lua_setmetatable(L, -2);
-    lua_pushliteral(L, "sockfd");
-    lua_pushinteger(L, fd);
-    lua_settable(L, -3);
 }
 
 static int lws_select(lua_State *L) {
@@ -183,6 +211,9 @@ static int lws_frame_header(lua_State *L) {
         header[1] = n;
         lua_pushlstring(L, header, 2);
     }
+    if (lua_toboolean(L, 2))
+        header[1] += 127; // set masked bit FIXME endianess!
+
     return 1;
 }
 
@@ -200,7 +231,13 @@ static int lws_ntohll(lua_State *L) {
     return 1;
 }
 
-static int lws_sha1base64(lua_State *L) {
+static int lws_htons(lua_State *L) {
+    uint16_t *p = (uint16_t *)lua_tostring(L, 1);
+    lua_pushinteger(L, htons(*p));
+    return 1;
+}
+
+static int lws_sha1(lua_State *L) {
     size_t n;
     const char *rawinput = lua_tolstring(L, 1, &n);
 #ifdef __APPLE__
@@ -209,28 +246,72 @@ static int lws_sha1base64(lua_State *L) {
 #else
     #error need code for platform's sha1
 #endif
+    lua_pushlstring(L, (const char *)input, CC_SHA1_DIGEST_LENGTH);
+    return 1;
+}
 
-//////
-    static const char map[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-    char data[28];
-    uint8_t *out = (uint8_t *)data;
-    for (int i = 0; i < 20;) {
-        int v  = 0;
-        for (const int N = i + 3; i < N; i++) {
-            v <<= 8;
-            v |= 0xFF & input[i];
+static int lws_base64(lua_State *L) {
+    static unsigned char base64EncodeLookup[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    size_t length;
+    const char *inputBuffer = lua_tolstring(L, 1, &length);
+
+    #define BINARY_UNIT_SIZE 3
+    #define BASE64_UNIT_SIZE 4
+    #define MAX_NUM_PADDING_CHARS 2
+    #define OUTPUT_LINE_LENGTH 64
+    #define INPUT_LINE_LENGTH ((OUTPUT_LINE_LENGTH / BASE64_UNIT_SIZE) * BINARY_UNIT_SIZE)
+    #define CR_LF_SIZE 2
+
+    size_t outputBufferSize =
+            ((length / BINARY_UNIT_SIZE)
+                + ((length % BINARY_UNIT_SIZE) ? 1 : 0))
+                    * BASE64_UNIT_SIZE;
+    outputBufferSize++; // Include space for a terminating zero
+
+    char out[outputBufferSize];
+    char *outputBuffer = out;
+    size_t i = 0;
+    size_t j = 0;
+    size_t lineEnd = length;
+
+    while (true) {
+        if (lineEnd > length)
+            lineEnd = length;
+
+        for (; i + BINARY_UNIT_SIZE - 1 < lineEnd; i += BINARY_UNIT_SIZE) {
+            // turn 48 bytes into 64 base64 characters
+            outputBuffer[j++] = base64EncodeLookup[(inputBuffer[i] & 0xFC) >> 2];
+            outputBuffer[j++] = base64EncodeLookup[((inputBuffer[i] & 0x03) << 4)
+                | ((inputBuffer[i + 1] & 0xF0) >> 4)];
+            outputBuffer[j++] = base64EncodeLookup[((inputBuffer[i + 1] & 0x0F) << 2)
+                | ((inputBuffer[i + 2] & 0xC0) >> 6)];
+            outputBuffer[j++] = base64EncodeLookup[inputBuffer[i + 2] & 0x3F];
         }
-        *out++ = map[v >> 18 & 0x3F];
-        *out++ = map[v >> 12 & 0x3F];
-        *out++ = map[v >> 6 & 0x3F];
-        *out++ = map[v >> 0 & 0x3F];
+
+        if (lineEnd == length)
+            break;
+
+        outputBuffer[j++] = '\r';
+        outputBuffer[j++] = '\n';
+        lineEnd += length;
     }
-    out[-2] = map[(input[19] & 0x0F) << 2];
-    out[-1] = '=';
 
-    lua_pushlstring(L, data, sizeof(data));
+    if (i + 1 < length) { // the single '=' case
+        outputBuffer[j++] = base64EncodeLookup[(inputBuffer[i] & 0xFC) >> 2];
+        outputBuffer[j++] = base64EncodeLookup[((inputBuffer[i] & 0x03) << 4)
+            | ((inputBuffer[i + 1] & 0xF0) >> 4)];
+        outputBuffer[j++] = base64EncodeLookup[(inputBuffer[i + 1] & 0x0F) << 2];
+        outputBuffer[j++] = '=';
+    } else if (i < length) { // the double '=' case
+        outputBuffer[j++] = base64EncodeLookup[(inputBuffer[i] & 0xFC) >> 2];
+        outputBuffer[j++] = base64EncodeLookup[(inputBuffer[i] & 0x03) << 4];
+        outputBuffer[j++] = '=';
+        outputBuffer[j++] = '=';
+    }
 
+    lua_pushlstring(L, out, j);
     return 1;
 }
 
@@ -243,6 +324,22 @@ static inline int lws_unmask(lua_State *L) {
         unmasked[x - 4] = c;
     }
     lua_pushlstring(L, unmasked, n - 4);
+    return 1;
+}
+
+static inline int lws_mask(lua_State *L) {
+    const uint32_t mask = rand();
+    const char *maskbytes = (const char *)&mask;
+    size_t N;
+    const char *input = lua_tolstring(L, 1, &N);
+    char out[N + 4];
+    out[0] = (char)((mask >> 24) & 0xFF);
+    out[1] = (char)((mask >> 16) & 0xFF);
+    out[2] = (char)((mask >> 8) & 0XFF);
+    out[3] = (char)((mask & 0XFF));
+    for (int i = 0; i < N; ++i)
+        out[i + 4] = input[i] ^ maskbytes[i % 4];
+    lua_pushlstring(L, out, N + 4);
     return 1;
 }
 
@@ -279,19 +376,18 @@ static int lws_sock_read(lua_State *L) {
         #error TODO
     }
 #endif
-    char buf[n];
-    int rn = recv(sockfd, buf, n, 0);
+    char buf[n ?: 2048];
+    int rn = recv(sockfd, buf, n ?: 2048, 0);
     if (rn == 0) {
         lws_sock_close(L);
         return 0;
     } else if (rn == -1) {
-        lua_pushstring(L, strerror(errno));
-        return lua_error(L);
-    } else if (rn != n) {
+        return luaL_error(L, "recv: %s", strerror(errno));
+    } else if (rn != n && n != 0) {
         lua_pushliteral(L, "Didn't receive all data :(");
         return lua_error(L);
     } else
-        lua_pushlstring(L, buf, n);
+        lua_pushlstring(L, buf, rn);
     return 1;
 }
 
@@ -341,10 +437,14 @@ int luaopen_websocket(lua_State *L) {
         {"bind", lws_bind},
         {"listen", lws_listen},
         {"select", lws_select},
+        {"connect", lws_connect},
         {"ntohs", lws_ntohs},
         {"ntohll", lws_ntohll},
+        {"htons", lws_htons},
+        {"mask", lws_mask},
         {"unmask", lws_unmask},
-        {"sha1base64", lws_sha1base64},
+        {"base64", lws_base64},
+        {"sha1", lws_sha1},
         {"frame_header", lws_frame_header},
         {NULL, NULL}
     });
