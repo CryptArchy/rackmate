@@ -25,14 +25,6 @@ local function broadcast(event, track)
          eventTime = time,
          track = track
       }
-      _{
-         userid = client.user,
-         passkey = client.pass,
-         playbackEvent = event,
-         url = "/playlog",
-         eventTime = time,
-         track = track
-      }:print()
    end
 end
 
@@ -46,7 +38,7 @@ local function parse_uri(s)
 end
 
 function handshake(data)
-   local sock = _(clients).find(function(client)
+   local sock = _.find(clients, function(client)
       return client.user == data.userid
    end)
    if sock and sock.pass == data.passkey then
@@ -73,5 +65,4 @@ function ended()
    broadcast("PlaybackEnded")
 end
 
---TODO remove playloggers!
---TODO don't insert duplicate playloggers!
+--TODO remove playloggers that are closed
