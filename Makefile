@@ -59,7 +59,7 @@ Rackmate.app/Contents/MacOS/rackmate.lua: $(filter-out src/main.lua, $(wildcard 
 
 
 ################################################################## directories
-DIRS = $(sort $(dir $(OBJS))) $(sort $(dir $(MACOS_OBJS))) .make/include/rackit $(CNTS)/MacOS $(CNTS)/Resources
+DIRS = $(sort $(dir $(OBJS))) $(sort $(dir $(MACOS_OBJS))) .make/include/rackit Rackmate.app/Contents/MacOS Rackmate.app/Contents/Resources
 $(OBJS) $(MACOS_OBJS): | $(DIRS)
 $(DIRS):
 	mkdir -p $@

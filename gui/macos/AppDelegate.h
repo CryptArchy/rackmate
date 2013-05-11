@@ -19,3 +19,7 @@
 }
 
 @end
+
+
+@interface MBStatusItemView : NSView
+@end

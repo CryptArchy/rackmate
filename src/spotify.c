@@ -41,7 +41,7 @@ static void tellmate(const char *what) {
 
 #define HERR(fn) {sp_error sperr = (fn); if (sperr) fprintf(stderr, "%s\n", sp_error_message(sperr)); }
 
-static sp_session *session = NULL;
+sp_session *session = NULL;
 static sp_track *loaded_track = NULL;
 static sp_track *prefetched_track = NULL;
 static audio_fifo_t *fifo;
@@ -263,37 +263,39 @@ static int lua_spotify_spool(lua_State *L) {
 }
 
 static int lua_spotify_login(lua_State *L) {
-    lua_getglobal(L, "os");
-    lua_pushliteral(L, "dir");
-    lua_gettable(L, -2);
-    lua_pushliteral(L, "prefs");
-    lua_gettable(L, -2);
-    lua_pushliteral(L, "Spotify");
-    lua_call(L, 1, 1);
-    const char *prefs = lua_tostring(L, -1);
-    lua_pop(L, 1);
-    lua_pushliteral(L, "cache");
-    lua_gettable(L, -2);
-    lua_pushliteral(L, "Spotify");
-    lua_call(L, 1, 1);
-    const char *cache = lua_tostring(L, -1);
-    lua_pop(L, 3);
+    if (!session) {
+        lua_getglobal(L, "os");
+        lua_pushliteral(L, "dir");
+        lua_gettable(L, -2);
+        lua_pushliteral(L, "prefs");
+        lua_gettable(L, -2);
+        lua_pushliteral(L, "Spotify");
+        lua_call(L, 1, 1);
+        const char *prefs = lua_tostring(L, -1);
+        lua_pop(L, 1);
+        lua_pushliteral(L, "cache");
+        lua_gettable(L, -2);
+        lua_pushliteral(L, "Spotify");
+        lua_call(L, 1, 1);
+        const char *cache = lua_tostring(L, -1);
+        lua_pop(L, 3);
 
-    sp_session_config spconfig = {
-        .api_version = SPOTIFY_API_VERSION,
-        .cache_location = cache,
-        .settings_location = prefs,
-        .application_key_size = g_appkey_size,
-        .application_key = g_appkey,
-        .user_agent = "Rackmate",
-        .callbacks = &session_callbacks,
-        .initially_unload_playlists = false, // don't waste RAM
-        NULL
-    };
+        sp_session_config spconfig = {
+            .api_version = SPOTIFY_API_VERSION,
+            .cache_location = cache,
+            .settings_location = prefs,
+            .application_key_size = g_appkey_size,
+            .application_key = g_appkey,
+            .user_agent = "Rackmate",
+            .callbacks = &session_callbacks,
+            .initially_unload_playlists = false, // don't waste RAM
+            NULL
+        };
 
-    HERR(sp_session_create(&spconfig, &session));
-    sp_session_set_connection_rules(session, SP_CONNECTION_RULE_NETWORK); // prevent offline sync
-    sp_session_login(session, RACKMATE_USERNAME, RACKMATE_PASSWORD, false, NULL);
+        HERR(sp_session_create(&spconfig, &session));
+        sp_session_set_connection_rules(session, SP_CONNECTION_RULE_NETWORK); // prevent offline sync
+    }
+    HERR(sp_session_relogin(session));
     return 0;
 }
 

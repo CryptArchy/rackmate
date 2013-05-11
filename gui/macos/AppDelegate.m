@@ -31,6 +31,7 @@ int lua_thread_loop();
     statusItem.alternateImage = [NSImage imageNamed:@"NSStatusItemInverted.png"];
     statusItem.menu = menu;
     statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
+    statusItem.view = [[[MBStatusItemView alloc] initWithFrame:NSMakeRect(0, 0, 29, [NSStatusBar systemStatusBar].thickness)] autorelease];
 
     if ([SPMediaKeyTap usesGlobalMediaKeyTap])
 		[[[SPMediaKeyTap alloc] initWithDelegate:self] startWatchingMediaKeys];
