@@ -21,6 +21,9 @@
 #import "WebSocket.h"
 #import "WebSocketFragment.h"
 #import "HandshakeHeader.h"
+#import "AsyncSocket.h"
+#import "MutableQueue.h"
+#import "NSData+Base64.h"
 
 
 enum

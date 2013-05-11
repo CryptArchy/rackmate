@@ -2,7 +2,6 @@ ifneq "$(wildcard keys.c)" "keys.c"
   $(error You must create keys.c: see README)
 endif
 
-.PHONY: dist-clean clean test macos
 SRCS := $(shell find src -name \*.c) $(shell find vendor -name \*.c)
 OBJS = $(patsubst %.c, .make/%.o, $(SRCS))
 DEPS = $(OBJS:.o=.d)
@@ -19,18 +18,8 @@ endif
 
 rackmate: .make/include/rackit/conf.h $(OBJS) .make/$(UNDERSCORE_SHA)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@
-clean:
-	rm -rf $(DIRS) $(OBJS) $(DEPS) Rackmate.app rackmate
-dist-clean:
-	rm -rf $(filter-out .make/conf.c .make/squish, $(wildcard .make/*)) vendor/underscore vendor/SPMediaKeyTap vendor/JSONKit Rackmate.app rackmate
-test:
-	@busted -m 'src/?.lua;include/?.lua' spec
 
-.make/%.o: %.c
-	$(CC) -MMD -MF $(@:.o=.d) -MT $@ $(CPPFLAGS) $< $(CFLAGS) -c -o $@
 $(OBJS): | $(DIRS)
-$(DIRS) .make/include/rackit:
-	mkdir -p $@
 
 .make/conf: .make/conf.c
 	$(CC) $(CPPFLAGS) $< -o $@
@@ -50,24 +39,30 @@ CNTS := Rackmate.app/Contents
 LUAS := $(wildcard src/*.lua) $(wildcard include/*.lua)
 IMGS := $(patsubst gui/macos/%.png, $(CNTS)/Resources/%.png, $(wildcard gui/macos/*.png))
 
-macos: .make/include/rackit/conf.h \
-	   vendor/SPMediaKeyTap vendor/JSONKit .make/$(UNDERSCORE_SHA) \
-       $(CNTS)/MacOS/rackmate.lua \
-       $(CNTS)/MacOS/Rackmate $(CNTS)/Info.plist \
+MACOS_SRCS := $(wildcard gui/macos/*.m) $(wildcard vendor/UnittWebSocketClient/*.m) vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m
+MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
+MACOS_DIRS = $(sort $(dir $(MACOS_OBJS)))
+MACOS_DEPS = $(MACOS_OBJS:.o=.d)
+
+MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage
+#to quieten:                            JSONKit
+MACOS_LDFLAGS = -framework Carbon -framework IOKit -framework Cocoa $(LDFLAGS) $(CPPFLAGS)
+#to satisfy:               SPMediaKeyTap     MBInsomnia
+MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKIT_GUI
+
+macos: vendor/SPMediaKeyTap vendor/JSONKit .make/$(UNDERSCORE_SHA) \
+	   $(CNTS)/MacOS/rackmate.lua \
+       $(CNTS)/MacOS/Rackmate \
+       $(CNTS)/Info.plist \
        $(CNTS)/Resources/MainMenu.nib \
        $(CNTS)/MacOS/libspotify.dylib \
        $(IMGS)
 
-# Carbon is for SPMediaKeyTap, IOKit is for MBInsomnia
-# -Wno-deprecated-objc-isa-usage if for JSONKit
-$(CNTS)/MacOS/Rackmate: $(SRCS) gui/macos/*.m \
-        vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m \
-        vendor/UnittWebSocketClient/*.m | $(CNTS)/MacOS
-	$(CC) $(CPPFLAGS) $(CFLAGS) -fno-objc-arc -DRACKIT_GUI -Wno-deprecated-objc-isa-usage \
--Ivendor/SPMediaKeyTap -Ivendor/UnittWebSocketClient -Ivendor/JSONKit \
-$(LDFLAGS) -framework Cocoa -framework IOKit -framework Carbon -o $@ $^
-	xcrun install_name_tool -change @rpath/libspotify.dylib @executable_path/libspotify.dylib $(CNTS)/MacOS/Rackmate
+$(MACOS_OBJS): | $(MACOS_DIRS)
 
+$(CNTS)/MacOS/Rackmate: $(MACOS_OBJS) .make/include/rackit/conf.h | $(CNTS)/MacOS
+	$(CC) $(MACOS_LDFLAGS) $(MACOS_OBJS) -o $@
+	xcrun install_name_tool -change @rpath/libspotify.dylib @executable_path/libspotify.dylib $(CNTS)/MacOS/Rackmate
 $(CNTS)/Info.plist: gui/macos/Info.plist
 	cp $< $@
 $(CNTS)/Resources/MainMenu.nib: gui/macos/MainMenu.xib | $(CNTS)/Resources
@@ -80,11 +75,38 @@ $(CNTS)/Resources/%.png: gui/macos/%.png
 	cp $< $@
 $(CNTS)/MacOS/rackmate.lua: $(filter-out src/main.lua, $(wildcard src/*.lua)) $(wildcard include/*.lua) src/main.lua | $(CNTS)/MacOS
 	.make/squish $^ > $@
-
 vendor/SPMediaKeyTap:
 	git clone https://github.com/rackit/SPMediaKeyTap $@
 vendor/JSONKit:
 	git clone https://github.com/johnezang/JSONKit $@
+
+-include $(MACOS_DEPS)
+
+
+###################################################################### general
+$(DIRS) $(MACOS_DIRS) .make/include/rackit:
+	mkdir -p $@
+
+
+######################################################################## PHONY
+.PHONY: dist-clean clean test macos
+
+clean:
+	rm -rf $(DIRS) $(MACOS_DIRS) $(MACOS_OBJS) $(OBJS) $(DEPS) Rackmate.app rackmate
+dist-clean:
+	rm -rf $(filter-out .make/conf.c .make/squish, $(wildcard .make/*)) vendor/underscore vendor/SPMediaKeyTap vendor/JSONKit Rackmate.app rackmate
+test:
+	@busted -m 'src/?.lua;include/?.lua' spec
+
+
+#################################################################### implicits
+.make/%.o: %.c
+	$(CC) -MMD -MF $(@:.o=.d) -MT $@ $(CPPFLAGS) $< $(CFLAGS) -c -o $@
+.make/macos/%.o: %.m
+	$(CC) -MMD -MF $(@:.o=.d) -MT $@ $(MACOS_CPPFLAGS) $< $(MACOS_CFLAGS) -c -o $@
+.make/macos/%.o: %.c
+	$(CC) -MMD -MF $(@:.o=.d) -MT $@ $(MACOS_CPPFLAGS) $< $(CFLAGS) -c -o $@
+
 
 ######################################################################## notes
 # * GNU Make sets CC itself if none is set here OR the environment

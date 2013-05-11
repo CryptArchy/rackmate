@@ -8,9 +8,9 @@
 //  Licensed under the Apache License, Version 2.0 (the "License"); you may not
 //  use this file except in compliance with the License. You may obtain a copy of
 //  the License at
-// 
+//
 //  http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 //  Unless required by applicable law or agreed to in writing, software
 //  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 //  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -20,42 +20,40 @@
 
 
 #import <Foundation/Foundation.h>
-#import "AsyncSocket.h"
 #import <Security/Security.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <CommonCrypto/CommonCryptor.h>
-#import "NSData+Base64.h"
-#import "MutableQueue.h"
+@class AsyncSocket;
+@class MutableQueue;
 #import "WebSocketConnectConfig.h"
 
-
-enum 
+enum
 {
-    WebSocketCloseStatusNormal = 1000, //indicates a normal closure, meaning whatever purpose the 
+    WebSocketCloseStatusNormal = 1000, //indicates a normal closure, meaning whatever purpose the
                                        //connection was established for has been fulfilled
-    WebSocketCloseStatusEndpointGone = 1001, //indicates that an endpoint is "going away", such as a 
-                                             //server going down, or a browser having navigated away from 
+    WebSocketCloseStatusEndpointGone = 1001, //indicates that an endpoint is "going away", such as a
+                                             //server going down, or a browser having navigated away from
                                              //a page
-    WebSocketCloseStatusProtocolError = 1002, //indicates that an endpoint is terminating the connection 
+    WebSocketCloseStatusProtocolError = 1002, //indicates that an endpoint is terminating the connection
                                               //due to a protocol error
     WebSocketCloseStatusInvalidDataType = 1003, //indicates that an endpoint is terminating the connection
-                                                //because it has received a type of data it cannot accept 
-                                                //(e.g. an endpoint that understands only text data MAY 
+                                                //because it has received a type of data it cannot accept
+                                                //(e.g. an endpoint that understands only text data MAY
                                                 //send this if it receives a binary message)
     WebSocketCloseStatusMessageTooLarge = 1004, //indicates that an endpoint is terminating the connection
                                                 //because it has received a message that is too large
-    WebSocketCloseStatusNormalButMissingStatus = 1005, //designated for use in applications expecting a status code 
+    WebSocketCloseStatusNormalButMissingStatus = 1005, //designated for use in applications expecting a status code
                                                        //to indicate that no status code was actually present
     WebSocketCloseStatusAbnormalButMissingStatus = 1006, //designated for use in	applications expecting a status code
                                                          //to indicate that the connection was closed abnormally, e.g.
                                                          //without sending or receiving a Close control frame.
-    WebSocketCloseStatusInvalidUtf8 = 1007 //indicates that an endpoint is terminating the connection because it has 
-                                           //received data that was supposed to be UTF-8 (such as in a text frame) that 
+    WebSocketCloseStatusInvalidUtf8 = 1007 //indicates that an endpoint is terminating the connection because it has
+                                           //received data that was supposed to be UTF-8 (such as in a text frame) that
                                            //was in fact not valid UTF-8
 };
 typedef NSUInteger WebSocketCloseStatus;
 
-enum 
+enum
 {
     WebSocketReadyStateConnecting = 0, //The connection has not yet been established.
     WebSocketReadyStateOpen = 1, //The WebSocket connection is established and communication is possible.
@@ -102,7 +100,7 @@ typedef NSUInteger WebSocketReadyState;
 @end
 
 
-@interface WebSocket : NSObject 
+@interface WebSocket : NSObject
 {
 @private
     id<WebSocketDelegate> delegate;
