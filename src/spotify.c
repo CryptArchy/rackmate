@@ -22,7 +22,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-static void tellmate(const char *what) {
+void tellmate(const char *what) {
     struct sockaddr_in serv_addr = {
         .sin_family = AF_INET,
         .sin_port = htons(13581),
@@ -262,6 +262,8 @@ static int lua_spotify_spool(lua_State *L) {
     return 0;
 }
 
+extern char *sp_password;
+extern char *sp_username;
 static int lua_spotify_login(lua_State *L) {
     if (!session) {
         lua_getglobal(L, "os");
@@ -295,7 +297,15 @@ static int lua_spotify_login(lua_State *L) {
         HERR(sp_session_create(&spconfig, &session));
         sp_session_set_connection_rules(session, SP_CONNECTION_RULE_NETWORK); // prevent offline sync
     }
-    HERR(sp_session_relogin(session));
+    if (sp_username && sp_password) {
+        fprintf(stderr, "HI\n");
+        sp_session_login(session, sp_username, sp_password, true, NULL);
+        free(sp_username);
+        free(sp_password);
+        sp_username = sp_password = NULL;
+    } else {
+        HERR(sp_session_relogin(session));
+    }
     return 0;
 }
 

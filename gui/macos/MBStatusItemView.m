@@ -135,14 +135,18 @@
     return NO;
 }
 
-#include "spotify.h"
-extern sp_session *session;
+
+char *sp_username = NULL;
+char *sp_password = NULL;
+void tellmate(const char *what);
 - (void)logIn {
-    NSString *username = user.stringValue;
-    NSString *password = pass.stringValue;
+    // we store the creds in variables so as to not transport the password over TCP in plain-text
+    sp_username = malloc([user.stringValue lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
+    sp_password = malloc([pass.stringValue lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
+    strcpy(sp_username, user.stringValue.UTF8String);
+    strcpy(sp_password, pass.stringValue.UTF8String);
+    tellmate("ctc:spotify.login");
     [self toggle];
-    //FIXME wrong thread!
-    sp_session_login(session, username.UTF8String, password.UTF8String, YES, NULL);
 }
 
 
