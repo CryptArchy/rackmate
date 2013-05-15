@@ -4,30 +4,23 @@
 #import "MBInsomnia.h"
 #import "SPMediaKeyTap.h"
 #import "spotify.h"
-#import "WebSocket.h"
 #import "JSONKit.h"
 
 extern sp_session *session;
 int lua_thread_loop();
 
-@interface AppDelegate () <WebSocketDelegate> {
+
+@implementation AppDelegate {
     BOOL notNow;
     BOOL waitingToQuit;
 }
-@end
-
-
-@implementation AppDelegate
 
 + (void)initialize {
 	[[NSUserDefaults standardUserDefaults] registerDefaults:@{kMediaKeyUsingBundleIdentifiersDefaultsKey: [SPMediaKeyTap defaultMediaKeyUserBundleIdentifiers]}];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
-    WebSocketConnectConfig *conf = [WebSocketConnectConfig configWithURLString:@"ws://localhost:13581" origin:nil protocols:@[@"rackmate"] tlsSettings:nil headers:nil verifySecurityKey:NO extensions:nil];
-    conf.version = WebSocketVersion10;
-    ws = [[WebSocket alloc] initWithConfig:conf delegate:self];
-    [ws open];
+    ws = [MBWebSocketClient new];
 
     thread = [[NSThread alloc] initWithTarget:self selector:@selector(luaInBackground) object:nil];
     thread.threadPriority = 1.0;
@@ -66,24 +59,9 @@ int lua_thread_loop();
     insomnia = [MBInsomnia new];
 }
 
-- (void)didOpen {
-    if (session && !notNow && !statusItem.view && sp_session_remembered_user(session, NULL, 0) == -1)
-        [self showLogIn];
-}
-
-- (void)didClose:(NSUInteger)statuscode message:(NSString *)msg error:(NSError *)error {
-    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
-    NSLog(@"%@", error);
-    [ws open]; //TODO don't do this if Lua is failing to load! Instead permenant error out
-}
-
-- (void)didReceiveError:(NSError *)error {
-    NSLog(@"%@", error);
-}
-
-- (void)didReceiveTextMessage:(NSString *)msg {
+- (void)webSocketData:(NSData *)msg {
     @try {
-        NSDictionary *o = msg.objectFromJSONString;
+        NSDictionary *o = msg.objectFromJSONData;
         if (o[@"status"]) {
             statusItem.image = [NSImage imageNamed:o[@"green"] ? @"NSStatusItem.png" : @"NSStatusItemDisabled.png"];
         } else {
@@ -139,7 +117,7 @@ int lua_thread_loop();
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSNotification *)note {
     //TODO handle case where socket didn't bind
     NSLog(@"HI");
-    [ws sendText:@"quit"];
+    [ws write:@"quit"];
     waitingToQuit = YES;
     return NSTerminateLater;
 }

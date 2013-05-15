@@ -221,28 +221,20 @@ static int lws_sha1(lua_State *L) {
     return 1;
 }
 
+#define BINARY_UNIT_SIZE 3
+#define BASE64_UNIT_SIZE 4
+#define MAX_NUM_PADDING_CHARS 2
+#define OUTPUT_LINE_LENGTH 64
+#define INPUT_LINE_LENGTH ((OUTPUT_LINE_LENGTH / BASE64_UNIT_SIZE) * BINARY_UNIT_SIZE)
+#define CR_LF_SIZE 2
 
-static int lws_base64(lua_State *L) {
+size_t base64_size(size_t length) {
+    return ((length / BINARY_UNIT_SIZE) + ((length % BINARY_UNIT_SIZE) ? 1 : 0)) * BASE64_UNIT_SIZE + 1;
+}
+
+void base64(const char *inputBuffer, size_t length, char *outputBuffer, size_t outputBufferSize) {
     static unsigned char base64EncodeLookup[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-    size_t length;
-    const char *inputBuffer = lua_tolstring(L, 1, &length);
-
-    #define BINARY_UNIT_SIZE 3
-    #define BASE64_UNIT_SIZE 4
-    #define MAX_NUM_PADDING_CHARS 2
-    #define OUTPUT_LINE_LENGTH 64
-    #define INPUT_LINE_LENGTH ((OUTPUT_LINE_LENGTH / BASE64_UNIT_SIZE) * BINARY_UNIT_SIZE)
-    #define CR_LF_SIZE 2
-
-    size_t outputBufferSize =
-            ((length / BINARY_UNIT_SIZE)
-                + ((length % BINARY_UNIT_SIZE) ? 1 : 0))
-                    * BASE64_UNIT_SIZE;
-    outputBufferSize++; // Include space for a terminating zero
-
-    char out[outputBufferSize];
-    char *outputBuffer = out;
     size_t i = 0;
     size_t j = 0;
     size_t lineEnd = length;
@@ -281,8 +273,15 @@ static int lws_base64(lua_State *L) {
         outputBuffer[j++] = '=';
         outputBuffer[j++] = '=';
     }
+}
 
-    lua_pushlstring(L, out, j);
+static int lws_base64(lua_State *L) {
+    size_t inn;
+    const char *in = lua_tolstring(L, 1, &inn);
+    size_t outn = base64_size(inn);
+    char out[outn];
+    base64(in, inn, out, outn);
+    lua_pushlstring(L, out, outn);
     return 1;
 }
 

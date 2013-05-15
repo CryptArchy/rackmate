@@ -28,7 +28,7 @@ rackmate: .make/include/rackit/conf.h $(OBJS) .make/$(UNDERSCORE_SHA)
 
 
 #################################################################### gui:macos
-MACOS_SRCS := $(wildcard gui/macos/*.m) $(wildcard vendor/UnittWebSocketClient/*.m) vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m
+MACOS_SRCS := $(wildcard gui/macos/*.m) vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m
 MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
 MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKIT_GUI
 MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage
@@ -43,7 +43,7 @@ macos: Rackmate.app/Contents/MacOS/rackmate.lua \
        Rackmate.app/Contents/MacOS/libspotify.dylib \
        $(patsubst gui/macos/%.png, Rackmate.app/Contents/Resources/%.png, $(wildcard gui/macos/*.png))
 
-Rackmate.app/Contents/MacOS/Rackmate: $(MACOS_OBJS) vendor/SPMediaKeyTap vendor/JSONKit .make/include/rackit/conf.h | Rackmate.app/Contents/MacOS
+Rackmate.app/Contents/MacOS/Rackmate: vendor/SPMediaKeyTap vendor/JSONKit .make/include/rackit/conf.h $(MACOS_OBJS) | Rackmate.app/Contents/MacOS
 	$(CC) $(MACOS_LDFLAGS) $(MACOS_OBJS) -o $@
 	xcrun install_name_tool -change @rpath/libspotify.dylib @executable_path/libspotify.dylib $@
 Rackmate.app/Contents/Info.plist: gui/macos/Info.plist
@@ -90,7 +90,6 @@ vendor/SPMediaKeyTap:
 	git clone https://github.com/rackit/SPMediaKeyTap $@
 vendor/JSONKit:
 	git clone https://github.com/johnezang/JSONKit $@
-
 
 #################################################################### implicits
 .make/%.o: %.c

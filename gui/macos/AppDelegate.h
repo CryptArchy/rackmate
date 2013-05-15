@@ -1,5 +1,8 @@
+#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
+
 @class MBInsomnia;
-@class WebSocket;
+@class MBWebSocketClient;
 
 
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
@@ -14,7 +17,7 @@
     IBOutlet NSMenuItem *pauseMenuItem;
 
     MBInsomnia *insomnia;
-    WebSocket *ws;
+    MBWebSocketClient *ws;
     NSThread *thread;
 }
 
@@ -22,4 +25,9 @@
 
 
 @interface MBStatusItemView : NSView
+@end
+
+
+@interface MBWebSocketClient : NSObject
+- (void)write:(id)dataOrString;
 @end
