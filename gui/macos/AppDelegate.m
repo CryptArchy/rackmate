@@ -27,10 +27,7 @@ int lua_thread_loop();
     [thread start];
 
     statusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:29] retain];
-    statusItem.highlightMode = YES;
-    statusItem.alternateImage = [NSImage imageNamed:@"NSStatusItemInverted.png"];
-    statusItem.menu = menu;
-    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
+    [self resetMenu];
 
     if ([SPMediaKeyTap usesGlobalMediaKeyTap])
 		[[[SPMediaKeyTap alloc] initWithDelegate:self] startWatchingMediaKeys];
@@ -95,9 +92,17 @@ int lua_thread_loop();
 
 }
 
+- (void)resetMenu {
+    statusItem.view = nil;
+    statusItem.highlightMode = YES;
+    statusItem.alternateImage = [NSImage imageNamed:@"NSStatusItemInverted.png"];
+    statusItem.menu = menu;
+    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
+}
+
 - (void)showLogIn {
     statusItem.view = [[[MBStatusItemView alloc] initWithFrame:NSMakeRect(0, 0, 29, [NSStatusBar systemStatusBar].thickness)] autorelease];
-    [statusItem.view toggle];
+    [statusItem.view performSelector:@selector(toggle)];
 }
 
 #include "spotify.h"

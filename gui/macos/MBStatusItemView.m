@@ -21,6 +21,17 @@
     NSTextField *pass;
 }
 
+- (void)dealloc {
+    if (window) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:window];
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignKeyNotification object:window];
+        [window orderOut:self];
+        [window release];
+        window = nil;
+    }
+    [super dealloc];
+}
+
 - (void)mouseDown:(NSEvent *)event {
     [self toggle];
     [self setNeedsDisplay:YES];
@@ -146,7 +157,9 @@ void tellmate(const char *what);
     strcpy(sp_username, user.stringValue.UTF8String);
     strcpy(sp_password, pass.stringValue.UTF8String);
     tellmate("ctc:spotify.login");
-    [self toggle];
+
+    // delay or crashes
+    [[NSApp delegate] performSelector:@selector(resetMenu) withObject:0 afterDelay:0.0];
 }
 
 
