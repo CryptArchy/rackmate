@@ -46,3 +46,5 @@ websocket.select{
       end
    end
 }
+
+require'spotify'.logout()

@@ -1,10 +1,10 @@
 local ipairs, table, string, print, type = ipairs, table, string, print, type
-local require, pairs, math = require, pairs, math
+local require, pairs, math, loadstring = require, pairs, math, loadstring
+local pairs, pcall, io = pairs, pcall, io
 local WebSocketClient = WebSocketClient
 local c = require'websocket.c'
 local JSON = require'cjson'
 local _ = require'underscore'
-local io = io
 module(...)
 
 clients = {}
@@ -16,12 +16,12 @@ local function send_json(sock, data)
    sock:write(c.frame_header(#data)..data)
 end
 
-function broadcast(data)
+function broadcast(data, protocol)
    data = JSON.encode(data)
    data = c.frame_header(#data)..data
-   for fd, client in pairs(clients) do
-      client:write(data)
-   end
+   _.chain(clients):select(function(client)
+      return protocol == nil or client.protocol == protocol
+   end):invoke('write', data)
 end
 
 local function handle_message(sock, rawdata, callback)
@@ -43,46 +43,62 @@ local function handle_message(sock, rawdata, callback)
 end
 
 function select(callbacks)
-   repeat until c.select(function(sock, handshake)
-      local headers = _.chain(handshake):split("\r\n"):compact():map(function(line)
-         return _.split(line, '%s*:%s*')
-      end):reduce(function(memo, parts)
-         memo[parts[1]] = parts[2]
-         return memo
-      end, {}):value()
-      local accept = c.base64(c.sha1(headers['Sec-WebSocket-Key']..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
+   repeat
+      for fd, sock in pairs(c.select()) do
+         if not _.contains(clients, sock) then
+            local rsp = sock:read(4)
+            if rsp ~= "ctc:" then
+               repeat rsp = rsp..sock:read(1) until rsp:sub(-4, -1) == "\r\n\r\n"
+               local headers = _.chain(rsp):split("\r\n"):compact():map(function(line)
+                  return _.split(line, '%s*:%s*')
+               end):reduce(function(memo, parts)
+                  memo[parts[1]] = parts[2]
+                  return memo
+               end, {}):value()
+               local accept = c.base64(c.sha1(headers['Sec-WebSocket-Key']..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
 
-      sock:write("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"..
-                 "Upgrade: websocket\r\n"..
-                 "Connection: Upgrade\r\n"..
-                 "Sec-WebSocket-Accept: "..accept.."\r\n\r\n")
+               _(headers):print()
 
-      sock.protocol = headers['Sec-WebSocket-Protocol']
-      clients[sock.sockfd] = sock; --TODO do in the C
+               sock:write("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"..
+                          "Upgrade: websocket\r\n"..
+                          "Connection: Upgrade\r\n"..
+                          "Sec-WebSocket-Accept: "..accept.."\r\n\r\n")
+               sock.protocol = headers['Sec-WebSocket-Protocol']
+               clients[fd] = sock
+               send_json(sock, callbacks.onconnect())
+            else
+               rsp = sock:read() --TODO should send length as next byte or something
+               sock:close()
+               rsp:gsub('(\w+)%.', "require'%1'.")
+               local status, err = pcall(loadstring(rsp))
+               if err then print("ctc:"..rsp..": "..err) end
 
-      send_json(sock, callbacks.onconnect())
-   end,
-   function(sock)
-      opcode, N = sock:read_header()
-      if opcode == 1 then
-         if N == 126 then
-            N = c.ntohs(sock:read(2))
-         elseif N == 127 then
-            N = c.ntohll(sock:read(8))
+            end
+         else
+            opcode, N = sock:read_header()
+            if opcode == 1 then
+               if N == 126 then
+                  N = c.ntohs(sock:read(2))
+               elseif N == 127 then
+                  N = c.ntohll(sock:read(8))
+               end
+               local data = sock:read(N + 4)
+               if data == "quit" then print("QUIT") return end
+               handle_message(sock, data, callbacks.onmessage)
+            elseif opcode == 8 then --CLOSE
+               sock:write(c.frame_header(2, 0x8)..c.unmask(sock:read(6)))
+               sock:close()
+            elseif opcode == 9 then --PING
+               local data = c.unmask(sock:read(N + 4))
+               sock:write(c.frame_header(#data, 0xA)..data)
+            elseif opcode == 0xA then --PONG
+               sock:read(N + 4) -- clear buffer
+            else
+               sock:close()
+            end
          end
-         handle_message(sock, sock:read(N + 4), callbacks.onmessage)
-      elseif opcode == 8 then --CLOSE
-         sock:write(c.frame_header(2, 0x8)..c.unmask(sock:read(6)))
-         sock:close()
-      elseif opcode == 9 then --PING
-         local data = c.unmask(sock:read(N + 4))
-         sock:write(c.frame_header(#data, 0xA)..data)
-      elseif opcode == 0xA then --PONG
-         sock:read(N + 4) -- clear buffer
-      else
-         sock:close()
       end
-   end)
+   until false
 end
 
 function connect(host, port, path)

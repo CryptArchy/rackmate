@@ -31,11 +31,14 @@ void tellmate(const char *what) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     int rv = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
     if (rv == -1)
-        return perror("ctc connect");
-    if (write(sockfd, what, strlen(what)) == -1)
-        perror("write");
-    else
+        return perror("ctc:connect");
+    rv = write(sockfd, what, strlen(what));
+    if (rv == -1)
+        perror("ctc:write");
+    else {
+        if (rv != strlen(what)) fprintf(stderr, "Didn't send everything!\n");
         close(sockfd);
+    }
 }
 
 
@@ -118,7 +121,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format, const 
     position += num_frames;
     if (!asked_for_next_track && position > duration - 20 * 44100) {
         asked_for_next_track = true;
-        tellmate("ctc:spotify.spool");
+        tellmate("ctc:spotify.spool()");
     }
 
     return num_frames;
@@ -129,7 +132,7 @@ static void sp_error_occurred(sp_session *session, sp_error error) {
 }
 
 static void notify_main_thread(sp_session *session) {
-    tellmate("ctc:spotify.process_events");
+    tellmate("ctc:spotify.process_events()");
 }
 
 static void end_of_track(sp_session *session) {
@@ -149,11 +152,22 @@ static void end_of_track(sp_session *session) {
     }
 }
 
+static void logged_in(sp_session *session, sp_error error) {
+    HERR(error);
+    tellmate("ctc:websocket.broadcast({status = 'green'}, 'rackmate')");
+}
+
+static void logged_out(sp_session *session) {
+    tellmate("ctc:websocket.broadcast({status = 'red', message = 'Logged out'}, 'rackmate')");
+}
+
 
 sp_session_callbacks session_callbacks = {
     .notify_main_thread = notify_main_thread,
 
-    .logged_out = NULL,
+    .logged_out = &logged_out,
+    .logged_in = &logged_in,
+
     .play_token_lost = NULL,
 
     .metadata_updated = &metadata_updated,
@@ -169,8 +183,7 @@ sp_session_callbacks session_callbacks = {
     .streaming_error = &sp_error_occurred,
     .offline_error = &sp_error_occurred,
     .scrobble_error = &sp_error_occurred,
-    .connection_error = &sp_error_occurred,
-    .logged_in = &sp_error_occurred
+    .connection_error = &sp_error_occurred
 };
 
 
@@ -298,7 +311,6 @@ static int lua_spotify_login(lua_State *L) {
         sp_session_set_connection_rules(session, SP_CONNECTION_RULE_NETWORK); // prevent offline sync
     }
     if (sp_username && sp_password) {
-        fprintf(stderr, "HI\n");
         sp_session_login(session, sp_username, sp_password, true, NULL);
         free(sp_username);
         free(sp_password);
@@ -309,9 +321,16 @@ static int lua_spotify_login(lua_State *L) {
     return 0;
 }
 
+static int lua_spotify_logout(lua_State *L) {
+    if (session)
+        sp_session_logout(session);
+    return 0;
+}
+
 int luaopen_spotify(lua_State *L) {
     luaL_register(L, "spotify", (struct luaL_reg[]){
         {"login", lua_spotify_login},
+        {"logout", lua_spotify_logout},
         {"search", lua_spotify_search},
         {"process_events", lua_spotify_process_events},
         {"play", lua_spotify_play},

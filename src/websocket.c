@@ -122,12 +122,10 @@ static int lws_select(lua_State *L) {
     lua_pop(L, 1);
 
     int rv = select(maxfd + 1, &fdset, NULL, NULL, NULL);
+    if (rv == -1)
+        return luaL_error(L, strerror(errno));
 
-    if (rv == -1) {
-        lua_pushstring(L, strerror(errno));
-        return lua_error(L);
-    }
-    int maxfdcp = maxfd;
+    lua_newtable(L);
     for (int ii = 0; ii < nfds; ++ii) {
         int fd = fds[ii];
         if (!FD_ISSET(fd, &fdset))
@@ -139,47 +137,17 @@ static int lws_select(lua_State *L) {
             // prevent race condition: http://stackoverflow.com/questions/3444729
             //int flags = fcntl(sockfd, F_GETFL, 0);
             //fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-            int newfd = accept(sockfd, (struct sockaddr *) &client, &sz);
-            //fcntl(sockfd, F_SETFL, flags);
-
-            if (newfd == -1) {
+            fd = accept(sockfd, (struct sockaddr *) &client, &sz);
+            if (fd == -1) {
                 perror("accept");
                 continue;
             }
-            char rsp[2048];
-            int n = recv(newfd, rsp, sizeof rsp, 0);
-            if (n <= 0) {
-                perror("recv");
-                close(newfd);
-                continue;
-            }
-            if (strncmp(rsp, "ctc:", 4) == 0) {
-                rsp[n] = '\0';
-                char *p = rsp + 4;
-                char *dot = strchr(p, '.');
-                *dot = '\0';
-                lua_getglobal(L, "require");
-                lua_pushstring(L, p);
-                lua_call(L, 1, 1);
-                lua_pushstring(L, dot + 1);
-                lua_gettable(L, -2);
-                lua_call(L, 0, 0);
-                lua_pop(L, 1); // pop require'd table
-            } else {
-                lua_pushcfunction(L, lua_backtrace);
-                lua_pushvalue(L, 1); // the callback
-                lua_push_sock(L, newfd);
-                lua_pushlstring(L, rsp, n);
-                lua_pcall(L, 2, 0, lua_gettop(L) - 3);
-            }
-        } else {
-            lua_pushcfunction(L, lua_backtrace);
-            lua_pushvalue(L, 2); // the callback
-            lua_push_sock(L, fd);
-            lua_pcall(L, 1, 0, lua_gettop(L) - 2);
         }
+        lua_pushinteger(L, fd);
+        lua_push_sock(L, fd);
+        lua_settable(L, -3);
     }
-    return 0;
+    return 1;
 }
 
 static int lws_ntohs(lua_State *L) {
@@ -379,7 +347,7 @@ static int lws_sock_read(lua_State *L) {
     }
 #endif
     int rn = 0;
-    if (lua_isnil(L, 2))
+    if (lua_gettop(L) == 1)
         n = 2048;
     char buf[n];
     char *p = buf;
@@ -392,7 +360,7 @@ static int lws_sock_read(lua_State *L) {
             return luaL_error(L, "recv: %s", strerror(errno));
         rn += rv;
         p += rv;
-        if (lua_isnil(L, 2))
+        if (lua_gettop(L) == 1)
             break;
     }
     lua_pushlstring(L, buf, rn);

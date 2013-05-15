@@ -3,12 +3,17 @@
 #import "AppDelegate.h"
 #import "MBInsomnia.h"
 #import "SPMediaKeyTap.h"
+#import "spotify.h"
 #import "WebSocket.h"
 #import "JSONKit.h"
 
+extern sp_session *session;
 int lua_thread_loop();
 
-@interface AppDelegate () <WebSocketDelegate>
+@interface AppDelegate () <WebSocketDelegate> {
+    BOOL notNow;
+    BOOL waitingToQuit;
+}
 @end
 
 
@@ -19,8 +24,10 @@ int lua_thread_loop();
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
-    WebSocketConnectConfig *conf = [WebSocketConnectConfig configWithURLString:@"ws://localhost:13581" origin:nil protocols:@[@"GUI"] tlsSettings:nil headers:nil verifySecurityKey:NO extensions:nil];
+    WebSocketConnectConfig *conf = [WebSocketConnectConfig configWithURLString:@"ws://localhost:13581" origin:nil protocols:@[@"rackmate"] tlsSettings:nil headers:nil verifySecurityKey:NO extensions:nil];
+    conf.version = WebSocketVersion10;
     ws = [[WebSocket alloc] initWithConfig:conf delegate:self];
+    [ws open];
 
     thread = [[NSThread alloc] initWithTarget:self selector:@selector(luaInBackground) object:nil];
     thread.threadPriority = 1.0;
@@ -60,12 +67,14 @@ int lua_thread_loop();
 }
 
 - (void)didOpen {
-    statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
+    if (session && !notNow && !statusItem.view && sp_session_remembered_user(session, NULL, 0) == -1)
+        [self showLogIn];
 }
 
 - (void)didClose:(NSUInteger)statuscode message:(NSString *)msg error:(NSError *)error {
     statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
     NSLog(@"%@", error);
+    [ws open]; //TODO don't do this if Lua is failing to load! Instead permenant error out
 }
 
 - (void)didReceiveError:(NSError *)error {
@@ -75,17 +84,23 @@ int lua_thread_loop();
 - (void)didReceiveTextMessage:(NSString *)msg {
     @try {
         NSDictionary *o = msg.objectFromJSONString;
-        BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
-        artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = stopped;
-        if (!stopped) {
-            id track = o[@"tapes"][o[@"index"]][@"tracks"][o[@"subindex"]];
-            artistMenuItem.title = track[@"artist"];
-            trackMenuItem.title = track[@"title"];
+        if (o[@"status"]) {
+            statusItem.image = [NSImage imageNamed:o[@"green"] ? @"NSStatusItem.png" : @"NSStatusItemDisabled.png"];
+        } else {
+            BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
+            artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = stopped;
+            if (!stopped) {
+                id track = o[@"tapes"][o[@"index"]][@"tracks"][o[@"subindex"]];
+                artistMenuItem.title = track[@"artist"];
+                trackMenuItem.title = track[@"title"];
+            }
         }
     } @catch (id e) {
         NSLog(@"%@", e);
         artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = YES;
     }
+
+    //statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
 }
 
 - (void)didReceiveBinaryMessage:(NSData *)msg {
@@ -100,22 +115,14 @@ int lua_thread_loop();
     statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
 }
 
+- (void)notNow {
+    notNow = YES;
+    [self resetMenu];
+}
+
 - (void)showLogIn {
     statusItem.view = [[[MBStatusItemView alloc] initWithFrame:NSMakeRect(0, 0, 29, [NSStatusBar systemStatusBar].thickness)] autorelease];
-    [statusItem.view performSelector:@selector(toggle)];
-}
-
-#include "spotify.h"
-extern sp_session *session;
-- (void)doopen2 {
-    //FIXME all sucks
-    if (sp_session_remembered_user(session, NULL, 0) == -1)
-        [self showLogIn];
-}
-
-- (void)doopen {
-    //FIXME all sucks
-    [self performSelector:@selector(doopen2) withObject:nil afterDelay:5];
+    [statusItem.view performSelector:@selector(toggle) withObject:nil afterDelay:0.1];
 }
 
 - (void)luaInBackground {
@@ -123,13 +130,18 @@ extern sp_session *session;
     id nspath = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"rackmate.lua"];
     char path[[nspath lengthOfBytesUsingEncoding:NSUTF8StringEncoding]];
     strcpy(path, [nspath UTF8String]);
-    [self performSelectorOnMainThread:@selector(doopen) withObject:nil waitUntilDone:NO];
     [pool release];
     lua_thread_loop(path);
+    if (waitingToQuit)
+        [NSApp replyToApplicationShouldTerminate:YES];
 }
 
-- (void)applicationWillTerminate:(NSNotification *)note {
-
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSNotification *)note {
+    //TODO handle case where socket didn't bind
+    NSLog(@"HI");
+    [ws sendText:@"quit"];
+    waitingToQuit = YES;
+    return NSTerminateLater;
 }
 
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent {

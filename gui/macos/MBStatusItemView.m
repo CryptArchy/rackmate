@@ -92,6 +92,8 @@
     [btn setButtonType:NSMomentaryLightButton];
     [btn setBezelStyle:NSRoundedBezelStyle];
     [view addSubview:btn];
+    btn.target = [NSApp delegate];
+    btn.action = @selector(notNow);
 
     btn = [[[NSButton alloc] initWithFrame:NSMakeRect(W - 5 - 64, 10, 64, 32)] autorelease];
     btn.title = @"Log In";
