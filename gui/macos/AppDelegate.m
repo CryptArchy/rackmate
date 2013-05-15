@@ -31,7 +31,6 @@ int lua_thread_loop();
     statusItem.alternateImage = [NSImage imageNamed:@"NSStatusItemInverted.png"];
     statusItem.menu = menu;
     statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
-    statusItem.view = [[[MBStatusItemView alloc] initWithFrame:NSMakeRect(0, 0, 29, [NSStatusBar systemStatusBar].thickness)] autorelease];
 
     if ([SPMediaKeyTap usesGlobalMediaKeyTap])
 		[[[SPMediaKeyTap alloc] initWithDelegate:self] startWatchingMediaKeys];
@@ -96,8 +95,22 @@ int lua_thread_loop();
 
 }
 
+- (void)showLogIn {
+    statusItem.view = [[[MBStatusItemView alloc] initWithFrame:NSMakeRect(0, 0, 29, [NSStatusBar systemStatusBar].thickness)] autorelease];
+    [statusItem.view toggle];
+}
+
+#include "spotify.h"
+extern sp_session *session;
+- (void)doopen2 {
+    //FIXME all sucks
+    if (sp_session_remembered_user(session, NULL, 0) == -1)
+        [self showLogIn];
+}
+
 - (void)doopen {
-    [ws performSelector:@selector(open) withObject:nil afterDelay:5];
+    //FIXME all sucks
+    [self performSelector:@selector(doopen2) withObject:nil afterDelay:5];
 }
 
 - (void)luaInBackground {
