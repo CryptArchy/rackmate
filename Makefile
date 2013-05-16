@@ -7,6 +7,8 @@ CFLAGS ?= -O0 -g
 LDFLAGS += -Llib -lspotify
 UNDERSCORE_SHA = 12b6473737de43abb8b0ab65046c923e431d952f
 
+.DELETE_ON_ERROR:
+
 
 ####################################################################### daemon
 SRCS := $(shell find src -name \*.c) $(shell find vendor -name \*.c)
@@ -16,8 +18,9 @@ ifeq "$(shell uname)" "Darwin"
 	LDFLAGS += -framework OpenAL -framework Security
 endif
 
-rackmate: .make/include/rackit/conf.h $(OBJS) .make/$(UNDERSCORE_SHA)
+rackmate: $(OBJS) .make/$(UNDERSCORE_SHA)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@
+$(OBJS): .make/include/rackit/conf.h
 
 
 #################################################################### configure
@@ -28,7 +31,9 @@ rackmate: .make/include/rackit/conf.h $(OBJS) .make/$(UNDERSCORE_SHA)
 
 
 #################################################################### gui:macos
-MACOS_SRCS := $(wildcard gui/macos/*.m) vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m vendor/SPMediaKeyTap/SPInvocationGrabbing/NSObject+SPInvocationGrabbing.m
+JSONKIT_SRCS = vendor/JSONKit/JSONKit.m
+SPMKT_SRCS = vendor/SPMediaKeyTap/SPMediaKeyTap.m vendor/SPMediaKeyTap/SPInvocationGrabbing/NSObject+SPInvocationGrabbing.m
+MACOS_SRCS := $(wildcard gui/macos/*.m) $(SPMKT_SRCS) $(JSONKIT_SRCS)
 MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
 MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKIT_GUI
 MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage
@@ -43,7 +48,7 @@ macos: Rackmate.app/Contents/MacOS/rackmate.lua \
        Rackmate.app/Contents/MacOS/libspotify.dylib \
        $(patsubst gui/macos/%.png, Rackmate.app/Contents/Resources/%.png, $(wildcard gui/macos/*.png))
 
-Rackmate.app/Contents/MacOS/Rackmate: vendor/SPMediaKeyTap vendor/JSONKit .make/include/rackit/conf.h $(MACOS_OBJS) | Rackmate.app/Contents/MacOS
+Rackmate.app/Contents/MacOS/Rackmate: $(MACOS_OBJS) | Rackmate.app/Contents/MacOS
 	$(CC) $(MACOS_LDFLAGS) $(MACOS_OBJS) -o $@
 	xcrun install_name_tool -change @rpath/libspotify.dylib @executable_path/libspotify.dylib $@
 Rackmate.app/Contents/Info.plist: gui/macos/Info.plist
@@ -54,8 +59,12 @@ Rackmate.app/Contents/MacOS/libspotify.dylib: lib/libspotify.dylib
 	cp $< $@
 Rackmate.app/Contents/Resources/%.png: gui/macos/%.png
 	cp $< $@
-Rackmate.app/Contents/MacOS/rackmate.lua: $(filter-out src/main.lua, $(wildcard src/*.lua)) $(wildcard include/*.lua) src/main.lua | Rackmate.app/Contents/MacOS .make/$(UNDERSCORE_SHA)
+Rackmate.app/Contents/MacOS/rackmate.lua: $(filter-out src/main.lua, $(wildcard src/*.lua)) $(wildcard include/*.lua) src/main.lua | Rackmate.app/Contents/MacOS
 	.make/squish $^ > $@
+
+include/underscore.lua: .make/$(UNDERSCORE_SHA)
+
+$(MACOS_OBJS): $(SPMKT_SRCS) $(JSONKIT_SRCS) .make/include/rackit/conf.h
 
 
 ################################################################## directories
@@ -86,10 +95,13 @@ DEPS = $(OBJS:.o=.d) $(MACOS_OBJS:.o=.d)
 	git --git-dir=$^/.git --work-tree=$^ reset --hard $(@F) > $@
 vendor/underscore:
 	git clone https://github.com/rackit/underscore.lua $@
+$(SPMKT_SRCS): vendor/SPMediaKeyTap
 vendor/SPMediaKeyTap:
 	git clone https://github.com/rackit/SPMediaKeyTap $@
+$(JSONKIT_SRCS): vendor/JSONKit
 vendor/JSONKit:
-	git clone https://github.com/johnezang/JSONKit $@
+	git clone https://github.com/johnezang/JSONKit vendor/JSONKit
+
 
 #################################################################### implicits
 .make/%.o: %.c

@@ -13,10 +13,14 @@ shortly as it isn’t strictly required). You can get yours at:
 Paste the contents of the C-Code link into keys.c in the root directory of
 this distribution.
 
-Max’s Release `make` Command
-============================
-    export SDK=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.6.sdk/usr
-    xcrun clang -march=core2 -arch i386 -arch x86_64 -O4 -Iinclude -isystem$SDK/include -mmacosx-version-min=10.5 -o rackmate `find c -name \*.c` -L$SDK/lib
+Compile Errors
+==============
+I *will* help you fix your compile errors. Report an issue at GitHub.
+
+Why Didn’t You Use lua-socket?
+==============================
+Lua-socket using coroutines was problematic with all our async-code that is
+in and out of the C-layer. So in the end I just wrote our own socket layer.
 
 Author
 ======
