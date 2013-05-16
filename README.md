@@ -3,6 +3,16 @@ Rackmate
 A flexible content resolver, primarily meant for use with http://rackit.co
 but is also thoughtfully designed so perhaps useful for your applications too.
 
+keys.c
+======
+Currently Rackmate won’t build without a Spotify key (this will be changed
+shortly as it isn’t strictly required). You can get yours at:
+
+    https://developer.spotify.com/technologies/libspotify/keys/
+
+Paste the contents of the C-Code link into keys.c in the root directory of
+this distribution.
+
 Max’s Release `make` Command
 ============================
     export SDK=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.6.sdk/usr
