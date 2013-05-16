@@ -1,4 +1,5 @@
-local table, io, type, os, require, print, ipairs = table, io, type, os, require, print, ipairs
+local table, io, type, os, require = table, io, type, os, require
+local print, ipairs, pcall, select = print, ipairs, pcall, select
 local JSON = require'cjson'
 local resolver = require'resolver'
 local spotify = require'spotify'
@@ -7,16 +8,24 @@ local _ = require'underscore'
 local playlogger = require'playlogger'
 module(...)
 
+-- What happens here:
+-- 1. we respond to external input commands
+-- 2. we set the expected state
+-- 3. we control the player
+-- 4. the player tries to reflect that state, but if not, it updates us on actual state
+
+
 local TAPES_JSON_PATH = os.dir.support().."/tapes.json"
 
 state = "stopped"
 index = 1
 subindex = 1
 
-tapes = (function()
+local tapes = (function()
    local f = io.open(TAPES_JSON_PATH, "r")
-   return (f and JSON.decode(f:read("*all"))) or {}
-end)()
+   local status, tapes = pcall(function() return JSON.decode(f:read("*all")) end)
+   return status and tapes
+end)() or {}
 _.each(tapes, function(tape) Tape.new(tape) end)
 
 function np()
@@ -63,15 +72,63 @@ function queue(data)
    --TODO check for valid tape data like artist, album, etc.
 end
 
-function remove(index)
-   table.remove(tapes, index + 1)
+local function actual_play()
+   resolver.resolve(np(), function(track, url)
+      spotify.play(url, {
+         next = function()
+            return next_resolvable_track().partnerID
+         end,
+         onexhaust = function()
+            sync_if_changes(function()
+               state = 'stopped'
+            end)
+            playlogger.ended()
+         end,
+         ontrack = function(url)
+            sync_if_changes(function()
+               index, subindex = (function()
+                  for ii, tape in ipairs(tapes) do
+                     local jj = _.indexOf(tape.tracks, function(track)
+                        return track.partnerID == url
+                     end)
+                     if jj > 0 then return ii, jj end
+                  end
+                  return index, subindex -- FIXME what TODO?
+               end)()
+            end)
+            playlogger.track(np())
+         end,
+         onpause = function()
+            playlogger.pause(np())
+         end,
+         onresume = function()
+            playlogger.resume(np())
+         end,
+      })
+   end)
+end
+
+function remove(rmindex)
+   local tape = tapes[index]
+   table.remove(tapes, rmindex + 1)
+   if rmindex + 1 == index then
+      if index > #tapes then
+         stop()
+      else
+         subindex = 1
+         if state == 'playing' then actual_play() end
+      end
+   elseif tape then                  -- there was a current index
+      index = _.indexOf(tapes, tape) -- update index if necessary
+   end
    save()
-   --TODO require index AND route
 end
 
 function move(data)
-   local tape = table.remove(tapes, data.from + 1)
-   table.insert(tapes, data.to + 1, tape)
+   local tape = tapes[index]
+   local rmtape = table.remove(tapes, data.from + 1)
+   table.insert(tapes, data.to + 1, rmtape)
+   if tape then index = _.indexOf(tapes, tape) end
 end
 
 function stop(data)
@@ -82,6 +139,8 @@ function stop(data)
 end
 
 function pause(data)
+   --TODO unpause should check if the loaded_track is different as it may have changed in eg. remove during pause
+
    if data == nil then -- the string "pause" was passed, act as a toggle
       if state == "paused" then
          state = "playing"
@@ -119,85 +178,64 @@ function next_resolvable_track()
    end
 end
 
-local function actual_play()
-   resolver.resolve(np(), function(track, url)
-      spotify.play(url, {
-         next = function()
-            return next_resolvable_track().partnerID
-         end,
-         onexhaust = function()
-            sync_if_changes(function()
-               state = 'stopped'
-            end)
-            playlogger.ended()
-         end,
-         ontrack = function(url)
-            sync_if_changes(function()
-               index, subindex = (function()
-                  for ii, tape in ipairs(tapes) do
-                     local jj = _.indexOf(tape.tracks, function(track)
-                        return track.partnerID == url
-                     end)
-                     if jj > 0 then return ii, jj end
-                  end
-                  return index, subindex -- FIXME what TODO?
-               end)()
-            end)
-            playlogger.track(np())
-         end,
-         onpause = function()
-            playlogger.pause(np())
-         end,
-         onresume = function()
-            playlogger.resume(np())
-         end,
-      })
-   end)
-end
-
 --TODO on error specify that you can send play: "help" to get docs
 --TODO passing tape and track to mean index and subindex seems wrong
 --TODO use constants rather than strings for state variable
 function play(data)
+   function play(params)
+      if params.index then
+         index = params.index
+         subindex = 1
+      end
+      if params.subindex then
+         subindex = params.subindex
+      end
+      if params.index or params.subindex then
+         state = "playing"
+         actual_play()
+      end
+   end
+
+   if data == "toggle" then
+      data = state ~= "playing" end
+
    if data == false then
       pause(true)
    elseif data == true or data == nil then
       if state == "stopped" then
-         play({tape = index, track = subindex})
+         play{index = 1}
       elseif state == "paused" then
          pause(false)
       end
-   elseif data == "toggle" then
-      play(state ~= "playing")
    elseif data == "next" then
       if # tapes[index].tracks > subindex then
-         play({track = subindex + 1})
+         play{subindex = subindex + 1}
       elseif #tapes > index then
-         play({tape = index + 1, track = 1})
+         play{index = index + 1}
       else
          stop()
       end
    elseif data == "prev" or data == "previous" or data == "back" then
       if subindex > 1 then
-         play({track = subindex - 1})
+         play{subindex = subindex - 1}
       elseif index > 1 then
-         play({tape = index - 1, track = 1})
+         play{index = index - 1}
       else
-         play({tape = 1, track = 1})
+         play{index = 1}
       end
    elseif type(data) == "number" then
-      play({tape = data + 1, track = 1})
+      play{index = data + 1}
    elseif type(data) == "table" then
-      local b1 = type(data.index) == "number"
-      local b2 = type(data.subindex) == "number"
+      -- +1 because Lua indexes start at ONE
+      local b1 = type(data.index) == "number" and data.index + 1
+      local b2 = type(data.subindex) == "number" and data.subindex + 1
       if b1 or b2 then
-         state = "playing"
-         if b1 then index = data.index + 1 subindex = 1 end
-         if b2 then subindex = data.subindex + 1 end
-         actual_play()
+         play{index = b1, subindex = b2}
+      elseif _.isArray(data) and #data >= 2 then
+         play{index = data[1], subindex = data[2]}
       else
          queue(data)
-         play({tape = #tapes})
+         play{index = #tapes}
       end
    else
       error("Cannot play that thing")
