@@ -52,11 +52,12 @@ static unsigned long long ntohll(unsigned long long v) {
         header[1] = o.length;
         data.length = 2;
     }
+    header = data.mutableBytes; // location of mutableBytes may change after changing the length
     header[1] |= 0x80; //set masked bit
 
-    const char *input = o.bytes;
-    char *out = data.mutableBytes + data.length;
     [data increaseLengthBy:o.length + 4];
+    char *out = data.mutableBytes + data.length - o.length - 4;
+    const char *input = o.bytes;
 
     const uint32_t mask = rand();
     out[0] = (char)((mask >> 24) & 0xFF);
