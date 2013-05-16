@@ -30,13 +30,13 @@ static void lua_push_clients(lua_State *L) {
 }
 
 static void lua_push_sock(lua_State *L, int fd) {
-    lua_newtable(L);
+    lua_newtable(L); // push a new "sock" table (object)
     lua_newtable(L);
     lua_pushliteral(L, "__index");
     luaL_getmetatable(L, "WebSocketClient");
     lua_settable(L, -3);
     lua_setmetatable(L, -2);
-    lua_pushliteral(L, "sockfd");
+    lua_pushliteral(L, "fd");
     lua_pushinteger(L, fd);
     lua_settable(L, -3);
 }
@@ -125,7 +125,8 @@ static int lws_select(lua_State *L) {
     if (rv == -1)
         return luaL_error(L, strerror(errno));
 
-    lua_newtable(L);
+    lua_pushcfunction(L, lua_backtrace); // push error handler for pcall
+
     for (int ii = 0; ii < nfds; ++ii) {
         int fd = fds[ii];
         if (!FD_ISSET(fd, &fdset))
@@ -133,19 +134,21 @@ static int lws_select(lua_State *L) {
         if (fd == sockfd) {
             struct sockaddr_storage client;
             socklen_t sz = sizeof client;
-
-            // prevent race condition: http://stackoverflow.com/questions/3444729
-            //int flags = fcntl(sockfd, F_GETFL, 0);
-            //fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
             fd = accept(sockfd, (struct sockaddr *) &client, &sz);
             if (fd == -1) {
                 perror("accept");
                 continue;
             }
+            lua_push_sock(L, fd);
+        } else {
+            lua_push_clients(L);
+            lua_pushinteger(L, fd);
+            lua_gettable(L, -2);
+            lua_remove(L, -2); // remove clients table
         }
-        lua_pushinteger(L, fd);
-        lua_push_sock(L, fd);
-        lua_settable(L, -3);
+        lua_pushvalue(L, 1); // push callback
+        lua_insert(L, 3); // move above sock object
+        lua_pcall(L, 1, 0, 2);
     }
     return 1;
 }
@@ -229,10 +232,10 @@ static int lws_sha1(lua_State *L) {
 #define CR_LF_SIZE 2
 
 size_t base64_size(size_t length) {
-    return ((length / BINARY_UNIT_SIZE) + ((length % BINARY_UNIT_SIZE) ? 1 : 0)) * BASE64_UNIT_SIZE + 1;
+    return ((length / BINARY_UNIT_SIZE) + ((length % BINARY_UNIT_SIZE) ? 1 : 0)) * BASE64_UNIT_SIZE;
 }
 
-void base64(const char *inputBuffer, size_t length, char *outputBuffer, size_t outputBufferSize) {
+int base64(const char *inputBuffer, size_t length, char *outputBuffer, size_t outputBufferSize) {
     static unsigned char base64EncodeLookup[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     size_t i = 0;
@@ -273,6 +276,8 @@ void base64(const char *inputBuffer, size_t length, char *outputBuffer, size_t o
         outputBuffer[j++] = '=';
         outputBuffer[j++] = '=';
     }
+
+    return j;
 }
 
 static int lws_base64(lua_State *L) {
@@ -280,7 +285,7 @@ static int lws_base64(lua_State *L) {
     const char *in = lua_tolstring(L, 1, &inn);
     size_t outn = base64_size(inn);
     char out[outn];
-    base64(in, inn, out, outn);
+    outn = base64(in, inn, out, outn);
     lua_pushlstring(L, out, outn);
     return 1;
 }
@@ -288,7 +293,7 @@ static int lws_base64(lua_State *L) {
 static inline int lws_unmask(lua_State *L) {
     size_t n;
     const char *masked = lua_tolstring(L, 1, &n);
-    char unmasked[n - 4]; // skip first 4 bytes, is header
+    char unmasked[n - 4]; // skip first 4 bytes: the mask
     for (int x = 4; x < n; ++x) {
         char c = masked[x] ^ masked[x%4];
         unmasked[x - 4] = c;
@@ -313,7 +318,7 @@ static inline int lws_mask(lua_State *L) {
 }
 
 static inline int lua_tosockfd(lua_State *L, int index) {
-    lua_pushliteral(L, "sockfd");
+    lua_pushliteral(L, "fd");
     if (index < 0) index--;
     lua_gettable(L, index);
     int rv = lua_tointeger(L, -1);

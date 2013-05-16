@@ -58,6 +58,8 @@ static int callback_ontrack = 0;
 static int callback_onexhaust = 0;
 static lua_State *process_events_L;
 
+static int callback_usability_status_change = 0;
+
 
 static void log(sp_session *session, const char *message) {
     fputs(message, stderr);
@@ -152,13 +154,21 @@ static void end_of_track(sp_session *session) {
     }
 }
 
+static void change_usability_status(const char *s) {
+    lua_State *L = process_events_L;
+    if (callback_usability_status_change) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, callback_usability_status_change);
+        lua_pushstring(L, s);
+        lua_call(L, 1, 0);
+    }
+}
+
 static void logged_in(sp_session *session, sp_error error) {
-    HERR(error);
-    tellmate("ctc:websocket.broadcast({status = 'green'}, 'rackmate')");
+    change_usability_status("loggedin");
 }
 
 static void logged_out(sp_session *session) {
-    tellmate("ctc:websocket.broadcast({status = 'red', message = 'Logged out'}, 'rackmate')");
+    change_usability_status("loggedout");
 }
 
 
@@ -278,6 +288,12 @@ static int lua_spotify_spool(lua_State *L) {
 extern char *sp_password;
 extern char *sp_username;
 static int lua_spotify_login(lua_State *L) {
+    if (lua_gettop(L) >= 1) {
+        lua_pushliteral(L, "onchange");
+        lua_gettable(L, -2);
+        callback_usability_status_change = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+
     if (!session) {
         lua_getglobal(L, "os");
         lua_pushliteral(L, "dir");
@@ -327,6 +343,25 @@ static int lua_spotify_logout(lua_State *L) {
     return 0;
 }
 
+static const char *getstate() {
+    switch (sp_session_connectionstate(session)) {
+        case SP_CONNECTION_STATE_LOGGED_OUT:   return "loggedout";
+        case SP_CONNECTION_STATE_LOGGED_IN:    return "loggedin";
+        case SP_CONNECTION_STATE_DISCONNECTED: return "unauthed";
+        case SP_CONNECTION_STATE_OFFLINE:      return "offline";
+
+        case SP_CONNECTION_STATE_UNDEFINED:
+        default:
+            return "unknown";
+    }
+
+}
+
+static int lua_spotify_getstate(lua_State *L) {
+    lua_pushstring(L, getstate());
+    return 1;
+}
+
 int luaopen_spotify(lua_State *L) {
     luaL_register(L, "spotify", (struct luaL_reg[]){
         {"login", lua_spotify_login},
@@ -336,6 +371,7 @@ int luaopen_spotify(lua_State *L) {
         {"play", lua_spotify_play},
         {"prefetch", lua_spotify_prefetch},
         {"spool", lua_spotify_spool},
+        {"getstate", lua_spotify_getstate},
         {NULL, NULL},
     });
 

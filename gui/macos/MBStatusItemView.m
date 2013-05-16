@@ -63,8 +63,8 @@
         [window orderOut:self];
         [window release];
         window = nil;
-        [self setNeedsDisplay:YES];
     }
+    [self setNeedsDisplay:YES];
 }
 
 #define W 300
@@ -156,7 +156,7 @@ void tellmate(const char *what);
     sp_password = malloc([pass.stringValue lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
     strcpy(sp_username, user.stringValue.UTF8String);
     strcpy(sp_password, pass.stringValue.UTF8String);
-    tellmate("ctc:spotify.login");
+    tellmate("ctc:spotify.login()");
 
     // delay or crashes
     [[NSApp delegate] performSelector:@selector(resetMenu) withObject:0 afterDelay:0.0];

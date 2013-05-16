@@ -62,8 +62,14 @@ int lua_thread_loop();
 - (void)webSocketData:(NSData *)msg {
     @try {
         NSDictionary *o = msg.objectFromJSONData;
-        if (o[@"status"]) {
-            statusItem.image = [NSImage imageNamed:o[@"green"] ? @"NSStatusItem.png" : @"NSStatusItemDisabled.png"];
+        if (o[@"spotify"]) {
+            if ([o[@"spotify"] isEqual:@"loggedin"])
+                statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
+            else {
+                statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
+                if (!notNow && !statusItem.view)
+                    [self showLogIn];
+            }
         } else {
             BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
             artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = stopped;
@@ -79,10 +85,6 @@ int lua_thread_loop();
     }
 
     //statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
-}
-
-- (void)didReceiveBinaryMessage:(NSData *)msg {
-
 }
 
 - (void)resetMenu {
@@ -111,15 +113,17 @@ int lua_thread_loop();
     [pool release];
     lua_thread_loop(path);
     if (waitingToQuit)
-        [NSApp replyToApplicationShouldTerminate:YES];
+        [NSApp terminate:self];
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSNotification *)note {
+    if (waitingToQuit)
+        return NSTerminateNow;
     //TODO handle case where socket didn't bind
-    NSLog(@"HI");
-    [ws write:@"quit"];
+    [ws send:@"\"quit\""];
     waitingToQuit = YES;
-    return NSTerminateLater;
+    // NSTerminateLater causes the RunLoop to not work with AsyncSocket
+    return NSTerminateCancel;
 }
 
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent {
@@ -128,7 +132,7 @@ int lua_thread_loop();
 }
 
 - (void)onSleepNotification:(NSNotification *)note {
-    //[ws send:@"\"pause\""];
+    [ws send:@"pause"];
 }
 
 - (IBAction)openHomeURL:(id)sender {
@@ -136,7 +140,7 @@ int lua_thread_loop();
 }
 
 - (IBAction)pause:(NSMenuItem *)menuItem {
-    //[ws send:@"{\"play\": \"toggle\"}"];
+    [ws send:@"{\"play\": \"toggle\"}"];
 }
 
 -(void)mediaKeyTap:(SPMediaKeyTap *)keyTap receivedMediaKeyEvent:(NSEvent *)event;
@@ -146,31 +150,21 @@ int lua_thread_loop();
 	int keyCode = (([event data1] & 0xFFFF0000) >> 16);
 	int keyFlags = ([event data1] & 0x0000FFFF);
 	BOOL keyIsPressed = (((keyFlags & 0xFF00) >> 8)) == 0xA;
-	//int keyRepeat = (keyFlags & 0x1); //TODO
+	int keyRepeat = (keyFlags & 0x1); //TODO
 
-	if (keyIsPressed) {
+	if (keyIsPressed && !keyRepeat) {
 		switch (keyCode) {
-			// case NX_KEYTYPE_PLAY:
-			// 	switch (musicbox.state) {
-   //                  case Paused:
-   //                      musicbox.paused = NO;
-   //                      break;
-   //                  case Playing:
-   //                      musicbox.paused = YES;
-   //                      break;
-   //                  case Stopped:
-   //                      [musicbox play:[NSIndexPath indexPathWithIndexes:(const NSUInteger[]){0, 0} length:2]];
-   //                      break;
-   //              }
-			// 	break;
+			case NX_KEYTYPE_PLAY:
+                [ws send:@"{\"play\": \"toggle\"}"];
+				break;
 
-			// case NX_KEYTYPE_FAST:
-			// 	[musicbox next];
-			// 	break;
+			case NX_KEYTYPE_FAST:
+				[ws send:@"{\"play\": \"next\"}"];
+				break;
 
-			// case NX_KEYTYPE_REWIND:
-			// 	[musicbox prev];
-			// 	break;
+			case NX_KEYTYPE_REWIND:
+				[ws send:@"{\"play\": \"prev\"}"];
+				break;
 		}
 	}
 }

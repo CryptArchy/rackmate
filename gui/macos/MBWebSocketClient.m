@@ -1,8 +1,9 @@
 #import "AppDelegate.h"
 #import "AsyncSocket.h"
+#import <Security/SecRandom.h>
 
 size_t base64_size(size_t length);
-void base64(const char *inputBuffer, size_t inputBufferSize, char *outputBuffer, size_t outputBufferSize);
+size_t base64(const char *inputBuffer, size_t inputBufferSize, char *outputBuffer, size_t outputBufferSize);
 
 static unsigned long long ntohll(unsigned long long v) {
     union { unsigned long lv[2]; unsigned long long llv; } u;
@@ -13,15 +14,20 @@ static unsigned long long ntohll(unsigned long long v) {
 
 @implementation MBWebSocketClient {
     AsyncSocket *socket;
+    AsyncSocket *connection;
 }
 
 - (id)init {
     socket = [[AsyncSocket alloc] initWithDelegate:self];
-    [socket connectToHost:@"localhost" onPort:13581 error:nil]; //TODO:ERROR
+    [self connect];
     return self;
 }
 
-- (void)write:(NSData *)o {
+- (void)connect {
+    [socket connectToHost:@"localhost" onPort:13581 error:nil]; //TODO:ERROR
+}
+
+- (void)send:(NSData *)o {
     if ([o isKindOfClass:[NSString class]]) o = [(NSString *)o dataUsingEncoding:NSUTF8StringEncoding];
 
     NSMutableData *data = [NSMutableData dataWithLength:10];
@@ -48,7 +54,7 @@ static unsigned long long ntohll(unsigned long long v) {
     }
     header[1] |= 0x80; //set masked bit
 
-    const char *input = data.bytes;
+    const char *input = o.bytes;
     char *out = data.mutableBytes + data.length;
     [data increaseLengthBy:o.length + 4];
 
@@ -64,19 +70,21 @@ static unsigned long long ntohll(unsigned long long v) {
 }
 
 - (void)onSocket:(AsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port {
-    NSString *key = [NSString stringWithFormat:@"%.4s%.4s%.4s%.4s", (char*)rand(), (char*)rand(), (char*)rand(), (char*)rand()];
-    int n = base64_size(16);
+    uint8_t in[16];
+    SecRandomCopyBytes(kSecRandomDefault, sizeof(in), in);
+    int n = base64_size(sizeof(in));
     char out[n];
-    base64(key.UTF8String, [key lengthOfBytesUsingEncoding:NSUTF8StringEncoding], out, n);
+    n = base64((char *)in, sizeof(in), out, n);
 
     id upgrade = [NSString stringWithFormat:@"GET / HTTP/1.1\r\n"
              "Host: localhost:13581\r\n"
              "Upgrade: websocket\r\n"
              "Connection: Upgrade\r\n"
              "Sec-WebSocket-Key: %.*s\r\n"
+             "Sec-WebSocket-Protocol: rackmate\r\n"
              "Sec-WebSocket-Version: 13\r\n\r\n", n, out];
 
-    [sock writeData:upgrade withTimeout:-1 tag:1];
+    [sock writeData:[upgrade dataUsingEncoding:NSUTF8StringEncoding] withTimeout:-1 tag:1];
 }
 
 - (void)onSocket:(AsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag {
@@ -120,7 +128,7 @@ static unsigned long long ntohll(unsigned long long v) {
 
 - (void)onSocket:(AsyncSocket *)sock didWriteDataWithTag:(long)tag {
     if (tag == 1) {
-        id sep = [NSData dataWithBytes:@"\r\n\r\n" length:4];
+        id sep = [NSData dataWithBytes:"\r\n\r\n" length:4];
         [sock readDataToData:sep withTimeout:-1 tag:1];
     }
 }
@@ -134,6 +142,8 @@ static unsigned long long ntohll(unsigned long long v) {
 - (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err {
     //TODO:ERROR
     NSLog(@"%@", err);
+    if (sock == socket)
+        [self performSelector:@selector(connect) withObject:nil afterDelay:1];
 }
 
 /**

@@ -6,8 +6,15 @@ local Tape = require'tape'
 
 websocket.listen()
 
-require'spotify'.login()
-require'jukebox'
+local spotify = require'spotify'
+spotify.login{
+   onchange = function(state)
+      websocket.broadcast(_.extend({spotify = state}, jukebox.state()), 'rackmate')
+   end
+}
+
+local jukebox = require'jukebox'
+local _ = require'underscore'
 
 local handlers = {
    move = jukebox.move,
@@ -31,8 +38,11 @@ local handlers = {
 }
 
 websocket.select{
-   onconnect = function()
-      return jukebox.getstate()
+   onconnect = function(protocol)
+      local state = jukebox.getstate()
+      if protocol == 'rackmate' then
+         state.spotify = spotify.getstate() end
+      return state
    end,
    onmessage = function(method, data, reply)
       if handlers[method] then
@@ -47,4 +57,4 @@ websocket.select{
    end
 }
 
-require'spotify'.logout()
+spotify.logout()

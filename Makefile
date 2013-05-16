@@ -5,7 +5,7 @@ endif
 CPPFLAGS += -Iinclude -I.make/include
 CFLAGS ?= -O0 -g
 LDFLAGS += -Llib -lspotify
-UNDERSCORE_SHA = 31b3b537b9f849dc854d0b528412321daf7eab8a
+UNDERSCORE_SHA = 36bde133d0ffc618dc19a05b918a4d0bc6343cb6
 
 
 ####################################################################### daemon
@@ -28,7 +28,7 @@ rackmate: .make/include/rackit/conf.h $(OBJS) .make/$(UNDERSCORE_SHA)
 
 
 #################################################################### gui:macos
-MACOS_SRCS := $(wildcard gui/macos/*.m) vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m
+MACOS_SRCS := $(wildcard gui/macos/*.m) vendor/JSONKit/JSONKit.m vendor/SPMediaKeyTap/SPMediaKeyTap.m vendor/SPMediaKeyTap/SPInvocationGrabbing/NSObject+SPInvocationGrabbing.m
 MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
 MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKIT_GUI
 MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage
