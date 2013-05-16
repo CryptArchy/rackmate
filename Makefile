@@ -4,6 +4,7 @@ endif
 
 CPPFLAGS += -Iinclude -I.make/include
 CFLAGS ?= -O0 -g
+CFLAGS += -std=c99
 LDFLAGS += -Llib -lspotify
 UNDERSCORE_SHA = 12b6473737de43abb8b0ab65046c923e431d952f
 
