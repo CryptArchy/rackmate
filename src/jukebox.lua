@@ -188,12 +188,12 @@ function play(data)
    elseif type(data) == "number" then
       play({tape = data + 1, track = 1})
    elseif type(data) == "table" then
-      local b1 = type(data.tape) == "number"
-      local b2 = type(data.track) == "number"
+      local b1 = type(data.index) == "number"
+      local b2 = type(data.subindex) == "number"
       if b1 or b2 then
          state = "playing"
-         if b1 then index = data.tape subindex = 1 end
-         if b2 then subindex = data.track end
+         if b1 then index = data.index + 1 subindex = 1 end
+         if b2 then subindex = data.subindex + 1 end
          actual_play()
       else
          queue(data)
