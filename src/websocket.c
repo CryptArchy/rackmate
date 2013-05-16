@@ -338,35 +338,23 @@ static int lws_sock_close(lua_State *L) {
 }
 
 static int lws_sock_read(lua_State *L) {
-    int sockfd = lua_tosockfd(L, 1);
-    uint64_t n
-#ifdef RACKIT_LUA_INTEGER_IS_64BIT
-     = lua_tointeger(L, 2);
-#else
-    ;
-    if (lua_isnumber(L, 2)) {
-        n = lua_tointeger(L, 2)
-    } else {
-        #error TODO
-    }
-#endif
-    int rn = 0;
-    if (lua_gettop(L) == 1)
-        n = 2048;
-    char buf[n];
+    const int sockfd = lua_tosockfd(L, 1);
+    const size_t N = lua_gettop(L) < 2 ? 2048 : lua_tointeger(L, 2);
+    char buf[N];
     char *p = buf;
-    while(rn < n) {
-        int rv = recv(sockfd, p, n, 0);
-        if (rv == 0) {
-            lws_sock_close(L);
-            break;
-        } else if (rv == -1)
-            return luaL_error(L, "recv: %s", strerror(errno));
+    int rn = 0;
+    do {
+        const int rv = recv(sockfd, p, N - rn, 0);
         rn += rv;
+        if (rv == 0 && N != 0) {
+            lws_sock_close(L);
+            return luaL_error(L, "Socket closed: %d:OK", sockfd);
+        } else if (rv == -1) {
+            return luaL_error(L, "recv: %s", strerror(errno));
+        } else if (lua_gettop(L) < 2)
+            break; //TODO Lua string concat
         p += rv;
-        if (lua_gettop(L) == 1)
-            break;
-    }
+    } while (rn < N);
     lua_pushlstring(L, buf, rn);
     return 1;
 }
@@ -387,32 +375,15 @@ static int lws_sock_write(lua_State *L) {
 }
 
 static int lws_sock_read_header(lua_State *L) {
-    char bytes[2];
-    int sockfd = lua_tosockfd(L, 1);
-    int rv = recv(sockfd, bytes, 2, 0);
-
-    if (rv == 0) { // socket was closed clientside
-        lws_sock_close(L);
-        return 0;
-    } else if (rv == -1) {
-        lua_pushstring(L, strerror(errno));
-        return lua_error(L);
-    }
-
-    uint16_t const N = bytes[1] & 0x7f;
-    char const opcode = bytes[0] & 0x0f;
-
-    // TODO support fragmented frames (first bit unset in control frame)
-    if (!bytes[0] & 0x80) {
-        lua_pushliteral(L, "Can't decode fragmented frames!");
-        return lua_error(L);
-    }
-    if (!bytes[1] & 0x80) {
-        lua_pushliteral(L, "Can only handle websocket frames with masks!");
-        return lua_error(L);
-    }
-    lua_pushinteger(L, opcode);
-    lua_pushinteger(L, N);
+    lua_pushinteger(L, 2);
+    lws_sock_read(L);
+    const char *bytes = lua_tostring(L, 3);
+    if (!bytes[0] & 0x80)
+        return luaL_error(L, "Can't decode fragmented frames!");
+    if (!bytes[1] & 0x80)
+        return luaL_error(L, "Can only handle websocket frames with masks!");
+    lua_pushinteger(L, bytes[0] & 0x0f); // opcode
+    lua_pushinteger(L, bytes[1] & 0x7f); // frame length
     return 2;
 }
 

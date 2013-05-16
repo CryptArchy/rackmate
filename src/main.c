@@ -69,11 +69,15 @@ static const char *syspath(int key) {
 
 //////////////////////////////////////////////////////////////////// lua utils
 int lua_backtrace(lua_State *L) {
-    lua_getfield(L, LUA_GLOBALSINDEX, "debug");
-    lua_getfield(L, -1, "traceback");
-    lua_pushvalue(L, 1);    // pass error message
-    lua_pushinteger(L, 2);  // skip this function and traceback
-    lua_call(L, 2, 1);      // call debug.traceback
+    size_t n;
+    const char *s = lua_tolstring(L, 1, &n);
+    if (strncmp(s + n - 3, ":OK", 3)) {
+        lua_getfield(L, LUA_GLOBALSINDEX, "debug");
+        lua_getfield(L, -1, "traceback");
+        lua_pushvalue(L, 1);    // pass error message
+        lua_pushinteger(L, 2);  // skip this function and traceback
+        lua_call(L, 2, 1);      // call debug.traceback
+    }
     fprintf(stderr, "%s\n", lua_tostring(L, -1));
     return 1;
 }
