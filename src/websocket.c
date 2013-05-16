@@ -33,7 +33,7 @@ static void lua_push_sock(lua_State *L, int fd) {
     lua_newtable(L); // push a new "sock" table (object)
     lua_newtable(L);
     lua_pushliteral(L, "__index");
-    luaL_getmetatable(L, "WebSocketClient");
+    lua_getglobal(L, "WebSocketClient");
     lua_settable(L, -3);
     lua_setmetatable(L, -2);
     lua_pushliteral(L, "fd");
@@ -433,7 +433,7 @@ int luaopen_websocket(lua_State *L) {
         {NULL, NULL}
     });
 
-    luaL_newmetatable(L, "WebSocketClient");
+    lua_newtable(L);
     lua_pushliteral(L, "close");
     lua_pushcfunction(L, lws_sock_close);
     lua_rawset(L, -3);
@@ -446,7 +446,7 @@ int luaopen_websocket(lua_State *L) {
     lua_pushliteral(L, "write");
     lua_pushcfunction(L, lws_sock_write);
     lua_rawset(L, -3);
-    lua_pop(L, 1);
+    lua_setglobal(L, "WebSocketClient");
 
     return 1;
 }

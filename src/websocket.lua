@@ -11,9 +11,31 @@ clients = {}
 bind = c.bind
 listen = c.listen
 
-local function send_json(sock, data)
+function WebSocketClient:read_frame()
+   local opcode, N = self:read_header()
+   if opcode == 1 then
+      if N == 126 then
+         N = c.ntohs(self:read(2))
+      elseif N == 127 then
+         N = c.ntohll(self:read(8))
+      end
+      return c.unmask(self:read(N + 4))
+   elseif opcode == 8 then --CLOSE
+      self:write(c.frame_header(2, 0x8)..c.unmask(self:read(6)))
+      self:close()
+   elseif opcode == 9 then --PING
+      local data = c.unmask(self:read(N + 4))
+      self:write(c.frame_header(#data, 0xA)..data)
+   elseif opcode == 0xA then --PONG
+      self:read(N + 4) -- clear buffer
+   else
+      self:close()
+   end
+end
+
+function WebSocketClient:send_json(data)
    data = JSON.encode(data)
-   sock:write(c.frame_header(#data)..data)
+   self:write(c.frame_header(#data)..data)
 end
 
 function broadcast(data, protocol)
@@ -22,28 +44,6 @@ function broadcast(data, protocol)
    _.chain(clients):select(function(client)
       return protocol == nil or client.protocol == protocol
    end):invoke('write', data)
-end
-
-local function read_frame(sock)
-   local opcode, N = sock:read_header()
-   if opcode == 1 then
-      if N == 126 then
-         N = c.ntohs(sock:read(2))
-      elseif N == 127 then
-         N = c.ntohll(sock:read(8))
-      end
-      return c.unmask(sock:read(N + 4))
-   elseif opcode == 8 then --CLOSE
-      sock:write(c.frame_header(2, 0x8)..c.unmask(sock:read(6)))
-      sock:close()
-   elseif opcode == 9 then --PING
-      local data = c.unmask(sock:read(N + 4))
-      sock:write(c.frame_header(#data, 0xA)..data)
-   elseif opcode == 0xA then --PONG
-      sock:read(N + 4) -- clear buffer
-   else
-      sock:close()
-   end
 end
 
 function select(callbacks)
@@ -63,7 +63,7 @@ function select(callbacks)
                     "Sec-WebSocket-Accept: "..accept.."\r\n\r\n")
          sock.protocol = headers['Sec-WebSocket-Protocol']
          clients[sock.fd] = sock
-         send_json(sock, callbacks.onconnect(sock.protocol))
+         sock:send_json(callbacks.onconnect(sock.protocol))
       else
          rsp = sock:read() --TODO should send length as next byte or something
          sock:close()
@@ -78,18 +78,18 @@ function select(callbacks)
       if not _.contains(clients, sock) then
          handshake(sock)
       else
-         local json = JSON.decode(read_frame(sock))
+         local json = JSON.decode(sock:read_frame())
          if type(json) ~= 'string' then
             local method = _.chain(json):keys():without('callbackId'):first():value()
             callbacks.onmessage(method, json[method], function(data)
                data.callbackId = json.callbackId
-               send_json(sock, data)
+               sock:send_json(data)
             end)
          elseif json == 'quit' then
             done = true --TODO don't let select loop again
          else
             callbacks.onmessage(json, nil, function(data)
-               send_json(sock, data)
+               sock:send_json(data)
             end)
          end
       end
