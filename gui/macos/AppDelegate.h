@@ -27,5 +27,5 @@
 
 
 @interface MBWebSocketClient : NSObject
-- (void)send:(id)dataOrString;
+- (void)send:(NSString *)string;
 @end

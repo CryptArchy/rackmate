@@ -145,29 +145,24 @@ int lua_thread_loop();
     [ws send:@"{\"play\": \"toggle\"}"];
 }
 
--(void)mediaKeyTap:(SPMediaKeyTap *)keyTap receivedMediaKeyEvent:(NSEvent *)event;
-{
+- (void)mediaKeyTap:(SPMediaKeyTap *)keyTap receivedMediaKeyEvent:(NSEvent *)event; {
 	NSAssert([event type] == NSSystemDefined && [event subtype] == SPSystemDefinedEventMediaKeys, @"Unexpected NSEvent in mediaKeyTap:receivedMediaKeyEvent:");
 	// here be dragons...
 	int keyCode = (([event data1] & 0xFFFF0000) >> 16);
 	int keyFlags = ([event data1] & 0x0000FFFF);
 	BOOL keyIsPressed = (((keyFlags & 0xFF00) >> 8)) == 0xA;
-	int keyRepeat = (keyFlags & 0x1); //TODO
+	int keyRepeat = (keyFlags & 0x1);
 
-	if (keyIsPressed && !keyRepeat) {
-		switch (keyCode) {
-			case NX_KEYTYPE_PLAY:
-                [ws send:@"{\"play\": \"toggle\"}"];
-				break;
-
-			case NX_KEYTYPE_FAST:
-				[ws send:@"{\"play\": \"next\"}"];
-				break;
-
-			case NX_KEYTYPE_REWIND:
-				[ws send:@"{\"play\": \"prev\"}"];
-				break;
-		}
+	if (keyIsPressed && !keyRepeat) switch (keyCode) {
+		case NX_KEYTYPE_PLAY:
+            [ws send:@"{\"play\": \"toggle\"}"];
+			break;
+		case NX_KEYTYPE_FAST:
+			[ws send:@"{\"play\": \"next\"}"];
+			break;
+		case NX_KEYTYPE_REWIND:
+			[ws send:@"{\"play\": \"prev\"}"];
+			break;
 	}
 }
 
