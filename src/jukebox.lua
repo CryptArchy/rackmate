@@ -91,6 +91,7 @@ function pause(data)
    else
       state = data and "paused" or "playing"
    end
+   spotify.pause(state == "paused");
 end
 
 function sync_if_changes(callback)

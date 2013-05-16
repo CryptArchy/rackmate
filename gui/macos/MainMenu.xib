@@ -1366,24 +1366,6 @@
 						<reference key="NSOnImage" ref="35465992"/>
 						<reference key="NSMixedImage" ref="502551668"/>
 					</object>
-					<object class="NSMenuItem" id="560487744">
-						<reference key="NSMenu" ref="288445317"/>
-						<bool key="NSIsDisabled">YES</bool>
-						<string key="NSTitle">WebSocket Status</string>
-						<string key="NSKeyEquiv"/>
-						<int key="NSMnemonicLoc">2147483647</int>
-						<reference key="NSOnImage" ref="35465992"/>
-						<reference key="NSMixedImage" ref="502551668"/>
-					</object>
-					<object class="NSMenuItem" id="288403306">
-						<reference key="NSMenu" ref="288445317"/>
-						<bool key="NSIsDisabled">YES</bool>
-						<string key="NSTitle">$BuildDate</string>
-						<string key="NSKeyEquiv"/>
-						<int key="NSMnemonicLoc">2147483647</int>
-						<reference key="NSOnImage" ref="35465992"/>
-						<reference key="NSMixedImage" ref="502551668"/>
-					</object>
 					<object class="NSMenuItem" id="838823559">
 						<reference key="NSMenu" ref="288445317"/>
 						<bool key="NSIsDisabled">YES</bool>
@@ -2148,27 +2130,11 @@
 				</object>
 				<object class="IBConnectionRecord">
 					<object class="IBOutletConnection" key="connection">
-						<string key="label">websocketStatusMenuItem</string>
-						<reference key="source" ref="976324537"/>
-						<reference key="destination" ref="560487744"/>
-					</object>
-					<int key="connectionID">557</int>
-				</object>
-				<object class="IBConnectionRecord">
-					<object class="IBOutletConnection" key="connection">
 						<string key="label">separator</string>
 						<reference key="source" ref="976324537"/>
 						<reference key="destination" ref="138061010"/>
 					</object>
 					<int key="connectionID">558</int>
-				</object>
-				<object class="IBConnectionRecord">
-					<object class="IBOutletConnection" key="connection">
-						<string key="label">buildDateMenuItem</string>
-						<reference key="source" ref="976324537"/>
-						<reference key="destination" ref="288403306"/>
-					</object>
-					<int key="connectionID">561</int>
 				</object>
 				<object class="IBConnectionRecord">
 					<object class="IBOutletConnection" key="connection">
@@ -3225,11 +3191,9 @@
 							<reference ref="292316003"/>
 							<reference ref="838823559"/>
 							<reference ref="860169039"/>
-							<reference ref="560487744"/>
 							<reference ref="138061010"/>
 							<reference ref="750078143"/>
 							<reference ref="1033731927"/>
-							<reference ref="288403306"/>
 							<reference ref="1040426432"/>
 						</object>
 						<reference key="parent" ref="0"/>
@@ -3260,11 +3224,6 @@
 						<reference key="parent" ref="288445317"/>
 					</object>
 					<object class="IBObjectRecord">
-						<int key="objectID">550</int>
-						<reference key="object" ref="560487744"/>
-						<reference key="parent" ref="288445317"/>
-					</object>
-					<object class="IBObjectRecord">
 						<int key="objectID">551</int>
 						<reference key="object" ref="138061010"/>
 						<reference key="parent" ref="288445317"/>
@@ -3277,11 +3236,6 @@
 					<object class="IBObjectRecord">
 						<int key="objectID">553</int>
 						<reference key="object" ref="1033731927"/>
-						<reference key="parent" ref="288445317"/>
-					</object>
-					<object class="IBObjectRecord">
-						<int key="objectID">559</int>
-						<reference key="object" ref="288403306"/>
 						<reference key="parent" ref="288445317"/>
 					</object>
 					<object class="IBObjectRecord">
@@ -3436,11 +3390,9 @@
 					<string>537.IBPluginDependency</string>
 					<string>538.IBPluginDependency</string>
 					<string>539.IBPluginDependency</string>
-					<string>550.IBPluginDependency</string>
 					<string>551.IBPluginDependency</string>
 					<string>552.IBPluginDependency</string>
 					<string>553.IBPluginDependency</string>
-					<string>559.IBPluginDependency</string>
 					<string>56.IBPluginDependency</string>
 					<string>562.IBPluginDependency</string>
 					<string>57.IBPluginDependency</string>
@@ -3460,8 +3412,6 @@
 				</object>
 				<object class="NSArray" key="dict.values">
 					<bool key="EncodedWithXMLCoder">YES</bool>
-					<string>com.apple.InterfaceBuilder.CocoaPlugin</string>
-					<string>com.apple.InterfaceBuilder.CocoaPlugin</string>
 					<string>com.apple.InterfaceBuilder.CocoaPlugin</string>
 					<string>com.apple.InterfaceBuilder.CocoaPlugin</string>
 					<string>com.apple.InterfaceBuilder.CocoaPlugin</string>

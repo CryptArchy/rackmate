@@ -5,7 +5,7 @@ endif
 CPPFLAGS += -Iinclude -I.make/include
 CFLAGS ?= -O0 -g
 LDFLAGS += -Llib -lspotify
-UNDERSCORE_SHA = 36bde133d0ffc618dc19a05b918a4d0bc6343cb6
+UNDERSCORE_SHA = 12b6473737de43abb8b0ab65046c923e431d952f
 
 
 ####################################################################### daemon

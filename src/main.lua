@@ -1,20 +1,17 @@
 require'websocket'
 websocket.bind()
-
 require'extlib'
 local Tape = require'tape'
-
+local _ = require'underscore'
 websocket.listen()
-
 local spotify = require'spotify'
 spotify.login{
    onchange = function(state)
-      websocket.broadcast(_.extend({spotify = state}, jukebox.state()), 'rackmate')
+      websocket.broadcast(_.extend({spotify = state}, jukebox.getstate()), 'rackmate')
    end
 }
 
-local jukebox = require'jukebox'
-local _ = require'underscore'
+local jukebox = require'jukebox' -- must come after Spotify: does immediate resolution
 
 local handlers = {
    move = jukebox.move,

@@ -154,29 +154,31 @@ static void end_of_track(sp_session *session) {
     }
 }
 
-static void change_usability_status(const char *s) {
+static const char *getstate() {
+    switch (sp_session_connectionstate(session)) {
+        case SP_CONNECTION_STATE_LOGGED_OUT:   return "loggedout";
+        case SP_CONNECTION_STATE_LOGGED_IN:    return "loggedin";
+        case SP_CONNECTION_STATE_DISCONNECTED: return "unauthed";
+        case SP_CONNECTION_STATE_OFFLINE:      return "offline";
+
+        case SP_CONNECTION_STATE_UNDEFINED:
+        default:
+            return "unknown";
+    }
+}
+
+static void connectionstate_updated(sp_session *sess) {
     lua_State *L = process_events_L;
     if (callback_usability_status_change) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, callback_usability_status_change);
-        lua_pushstring(L, s);
+        lua_pushstring(L, getstate());
         lua_call(L, 1, 0);
     }
 }
 
-static void logged_in(sp_session *session, sp_error error) {
-    change_usability_status("loggedin");
-}
-
-static void logged_out(sp_session *session) {
-    change_usability_status("loggedout");
-}
-
-
 sp_session_callbacks session_callbacks = {
     .notify_main_thread = notify_main_thread,
-
-    .logged_out = &logged_out,
-    .logged_in = &logged_in,
+    .connectionstate_updated = &connectionstate_updated,
 
     .play_token_lost = NULL,
 
@@ -266,6 +268,22 @@ static int lua_spotify_play(lua_State *L) {
     return 0;
 }
 
+static int lua_spotify_pause(lua_State *L) {
+    if (loaded_track && lua_gettop(L) == 1)
+        sp_session_player_play(session, !lua_toboolean(L, 1));
+    return 0;
+}
+
+static int lua_spotify_stop(lua_State *L) {
+    sp_session_player_unload(session);
+    if (loaded_track)
+        sp_track_release(loaded_track);
+    if (prefetched_track)
+        sp_track_release(prefetched_track);
+    prefetched_track = loaded_track = NULL;
+    return 0;
+}
+
 static int lua_spotify_prefetch(lua_State *L) {
     const char *url = lua_tostring(L, 1);
     if (!url) return 0;
@@ -343,20 +361,6 @@ static int lua_spotify_logout(lua_State *L) {
     return 0;
 }
 
-static const char *getstate() {
-    switch (sp_session_connectionstate(session)) {
-        case SP_CONNECTION_STATE_LOGGED_OUT:   return "loggedout";
-        case SP_CONNECTION_STATE_LOGGED_IN:    return "loggedin";
-        case SP_CONNECTION_STATE_DISCONNECTED: return "unauthed";
-        case SP_CONNECTION_STATE_OFFLINE:      return "offline";
-
-        case SP_CONNECTION_STATE_UNDEFINED:
-        default:
-            return "unknown";
-    }
-
-}
-
 static int lua_spotify_getstate(lua_State *L) {
     lua_pushstring(L, getstate());
     return 1;
@@ -372,6 +376,8 @@ int luaopen_spotify(lua_State *L) {
         {"prefetch", lua_spotify_prefetch},
         {"spool", lua_spotify_spool},
         {"getstate", lua_spotify_getstate},
+        {"pause", lua_spotify_pause},
+        {"stop", lua_spotify_stop},
         {NULL, NULL},
     });
 

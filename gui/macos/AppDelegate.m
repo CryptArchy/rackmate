@@ -41,20 +41,10 @@ int lua_thread_loop();
                                                            selector:@selector(onSleepNotification:)
                                                                name:NSWorkspaceWillSleepNotification
                                                              object:NULL];
-
-    websocketStatusMenuItem.title = @"WebSocket disconnected";
     artistMenuItem.hidden = YES;
     trackMenuItem.hidden = YES;
     separator.hidden = YES;
     pauseMenuItem.hidden = YES;
-
-    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:[NSBundle mainBundle].executablePath error:nil];
-    NSDateFormatter *df = [NSDateFormatter new];
-    df.dateFormat = @"MM/dd/yy HH:mm:ss";
-    df.timeZone = [NSTimeZone timeZoneWithName:@"EST"];
-    NSString *timestamp = [df stringFromDate:attrs.fileModificationDate];
-    if (timestamp.length)
-        buildDateMenuItem.title = timestamp;
 
     insomnia = [MBInsomnia new];
 }
@@ -63,25 +53,35 @@ int lua_thread_loop();
     @try {
         NSDictionary *o = msg.objectFromJSONData;
         if (o[@"spotify"]) {
+            NSLog(@"%@", o[@"spotify"]);
             if ([o[@"spotify"] isEqual:@"loggedin"])
                 statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
             else {
                 statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
-                if (!notNow && !statusItem.view)
+                if (!notNow && !statusItem.view && [o[@"spotify"] isEqual:@"loggedout"])
                     [self showLogIn];
             }
+            spotifyStatusMenuItem.title = o[@"spotify"];
         } else {
             BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
-            artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = stopped;
+            artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = pauseMenuItem.hidden = stopped;
             if (!stopped) {
-                id track = o[@"tapes"][o[@"index"]][@"tracks"][o[@"subindex"]];
+                int i = [o[@"index"] intValue];
+                int si = [o[@"subindex"] intValue];
+                id track = o[@"tapes"][i][@"tracks"][si];
                 artistMenuItem.title = track[@"artist"];
                 trackMenuItem.title = track[@"title"];
+            }
+            if ([o[@"state"] isEqual:@"paused"]) {
+                pauseMenuItem.state = NSOnState;
+                pauseMenuItem.title = @"Paused";
+            } else {
+                pauseMenuItem.state = NSOffState;
+                pauseMenuItem.title = @"Pause";
             }
         }
     } @catch (id e) {
         NSLog(@"%@", e);
-        artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = YES;
     }
 
     //statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
@@ -114,6 +114,8 @@ int lua_thread_loop();
     lua_thread_loop(path);
     if (waitingToQuit)
         [NSApp terminate:self];
+    else
+        NSLog(@"Lua thread ended, but we weren't expecting it!");
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSNotification *)note {
@@ -132,7 +134,7 @@ int lua_thread_loop();
 }
 
 - (void)onSleepNotification:(NSNotification *)note {
-    [ws send:@"pause"];
+    [ws send:@"{\"pause\": true}"];
 }
 
 - (IBAction)openHomeURL:(id)sender {
