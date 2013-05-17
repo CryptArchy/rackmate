@@ -20,13 +20,7 @@
 }
 
 - (void)dealloc {
-    if (window) {
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:window];
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignKeyNotification object:window];
-        [window orderOut:self];
-        [window release];
-        window = nil;
-    }
+    [self releaseWindow];
     [super dealloc];
 }
 
@@ -50,19 +44,22 @@
     [img drawAtPoint:pt fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1];
 }
 
+- (void)releaseWindow {
+    if (window) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignKeyNotification object:window];
+        [window release];
+        window = nil;
+    }
+}
+
 - (void)toggle {
     if (!window) {
         [self newWindow];
         [NSApp activateIgnoringOtherApps:YES];
         [window makeKeyAndOrderFront:self];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(toggle) name:NSWindowDidResignKeyNotification object:window];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(toggle) name:NSWindowWillCloseNotification object:window];
     } else {
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:window];
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignKeyNotification object:window];
-        [window orderOut:self];
-        [window release];
-        window = nil;
+        [self releaseWindow];
     }
     [self setNeedsDisplay:YES];
 }
@@ -126,6 +123,7 @@
     [window setExcludedFromWindowsMenu:YES];
     [window setOpaque:YES];
     [window setHasShadow:YES];
+    [window setReleasedWhenClosed:NO];
 
     [window.contentView setFrame:NSMakeRect(0, 0, W, H + HH)];
     [window.contentView addSubview:view];
