@@ -1,3 +1,5 @@
+#import <Foundation/Foundation.h>
+
 typedef uint32_t IOPMAssertionID;
 
 @interface MBInsomnia : NSObject {

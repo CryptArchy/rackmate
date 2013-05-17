@@ -37,10 +37,10 @@ SPMKT_SRCS = vendor/SPMediaKeyTap/SPMediaKeyTap.m vendor/SPMediaKeyTap/SPInvocat
 MACOS_SRCS := $(wildcard gui/macos/*.m) $(SPMKT_SRCS) $(JSONKIT_SRCS)
 MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
 MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKIT_GUI
-MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage
+MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage -mmacosx-version-min=10.4
 #to quieten:                            JSONKit
-MACOS_LDFLAGS = -framework Carbon -framework IOKit -framework Cocoa $(LDFLAGS) $(CPPFLAGS)
-#to satisfy:               SPMediaKeyTap     MBInsomnia
+MACOS_LDFLAGS = -framework Carbon -framework IOKit -framework QuartzCore -framework Cocoa $(LDFLAGS) $(CPPFLAGS)
+#to satisfy:               SPMediaKeyTap     MBInsomnia       MBStatusItemView
 
 macos: Rackmate.app/Contents/MacOS/rackmate.lua \
        Rackmate.app/Contents/MacOS/Rackmate \

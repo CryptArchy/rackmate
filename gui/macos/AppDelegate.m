@@ -28,6 +28,7 @@ int lua_thread_loop();
 
     statusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:29] retain];
     [self resetMenu];
+    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
 
     if ([SPMediaKeyTap usesGlobalMediaKeyTap])
 		[[[SPMediaKeyTap alloc] initWithDelegate:self] startWatchingMediaKeys];
@@ -53,32 +54,32 @@ int lua_thread_loop();
     @try {
         NSDictionary *o = msg.objectFromJSONData;
         if (o[@"spotify"]) {
-            NSLog(@"%@", o[@"spotify"]);
-            if ([o[@"spotify"] isEqual:@"loggedin"])
+            if ([o[@"spotify"] isEqual:@"loggedin"]) {
+                [self resetMenu];
                 statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
-            else {
-                statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
+            } else {
                 if (!notNow && !statusItem.view && [o[@"spotify"] isEqual:@"loggedout"])
                     [self showLogIn];
+                // else
+                //     statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
             }
             spotifyStatusMenuItem.title = o[@"spotify"];
+        }
+        BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
+        artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = pauseMenuItem.hidden = stopped;
+        if (!stopped) {
+            int i = [o[@"index"] intValue];
+            int si = [o[@"subindex"] intValue];
+            id track = o[@"tapes"][i][@"tracks"][si];
+            artistMenuItem.title = track[@"artist"];
+            trackMenuItem.title = track[@"title"];
+        }
+        if ([o[@"state"] isEqual:@"paused"]) {
+            pauseMenuItem.state = NSOnState;
+            pauseMenuItem.title = @"Paused";
         } else {
-            BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
-            artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = pauseMenuItem.hidden = stopped;
-            if (!stopped) {
-                int i = [o[@"index"] intValue];
-                int si = [o[@"subindex"] intValue];
-                id track = o[@"tapes"][i][@"tracks"][si];
-                artistMenuItem.title = track[@"artist"];
-                trackMenuItem.title = track[@"title"];
-            }
-            if ([o[@"state"] isEqual:@"paused"]) {
-                pauseMenuItem.state = NSOnState;
-                pauseMenuItem.title = @"Paused";
-            } else {
-                pauseMenuItem.state = NSOffState;
-                pauseMenuItem.title = @"Pause";
-            }
+            pauseMenuItem.state = NSOffState;
+            pauseMenuItem.title = @"Pause";
         }
     } @catch (id e) {
         NSLog(@"%@", e);
@@ -92,12 +93,12 @@ int lua_thread_loop();
     statusItem.highlightMode = YES;
     statusItem.alternateImage = [NSImage imageNamed:@"NSStatusItemInverted.png"];
     statusItem.menu = menu;
-    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
 }
 
 - (void)notNow {
     notNow = YES;
     [self resetMenu];
+    statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
 }
 
 - (void)showLogIn {

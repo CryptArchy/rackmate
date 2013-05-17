@@ -12,6 +12,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+extern void spcb_logged_in(sp_session *session, sp_error err);
+
 #define E_LUA_PCALL(p1, p2, p3) \
     if (lua_pcall(p1, p2, p3, 0) != 0) { \
         fprintf(stderr, "%s\n", lua_tostring(p1, -1)); \
@@ -179,6 +181,8 @@ static void connectionstate_updated(sp_session *sess) {
 sp_session_callbacks session_callbacks = {
     .notify_main_thread = notify_main_thread,
     .connectionstate_updated = &connectionstate_updated,
+
+    .logged_in = spcb_logged_in,
 
     .play_token_lost = NULL,
 

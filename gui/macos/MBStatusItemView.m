@@ -1,4 +1,6 @@
 #import "AppDelegate.h"
+#import <QuartzCore/CoreAnimation.h>
+#import "spotify.h"
 
 @interface MBStatusItemView () <NSTextFieldDelegate>
 @end
@@ -6,27 +8,27 @@
 @interface MBWindow : NSWindow
 @end
 
-@interface BGView : NSView {
-@public
-    NSColor *bg;
-}
+@interface BGView : NSView
 @end
+
+static MBStatusItemView *gself = nil;
 
 
 @implementation MBStatusItemView {
-    NSWindow *window;
     NSTextField *user;
     NSTextField *pass;
+    NSButton *login;
+    NSWindow *window;
 }
 
 - (void)dealloc {
+    gself = nil;
     [self releaseWindow];
     [super dealloc];
 }
 
 - (void)mouseDown:(NSEvent *)event {
     [self toggle];
-    [self setNeedsDisplay:YES];
 }
 
 - (void)drawRect:(NSRect)rect {
@@ -77,8 +79,8 @@
     [view addSubview:iv];
 
     const float x = 50 + 20;
-    [view addSubview:pass = [[[NSSecureTextField alloc] initWithFrame:NSMakeRect(x, H - 33 - 30, W - 10 - x, 21)] autorelease]];
     [view addSubview:user = [[[NSTextField alloc] initWithFrame:NSMakeRect(x, H - 33, W - 10 - x, 21)] autorelease]];
+    [view addSubview:pass = [[[NSSecureTextField alloc] initWithFrame:NSMakeRect(x, H - 33 - 30, W - 10 - x, 21)] autorelease]];
 
     user.delegate = pass.delegate = self;
 
@@ -90,7 +92,7 @@
     btn.target = [NSApp delegate];
     btn.action = @selector(notNow);
 
-    btn = [[[NSButton alloc] initWithFrame:NSMakeRect(W - 5 - 64, 10, 64, 32)] autorelease];
+    login = btn = [[[NSButton alloc] initWithFrame:NSMakeRect(W - 5 - 64, 10, 64, 32)] autorelease];
     btn.title = @"Log In";
     [btn setButtonType:NSMomentaryLightButton];
     [btn setBezelStyle:NSRoundedBezelStyle];
@@ -135,7 +137,7 @@
 - (BOOL)control:(NSControl *)control textView:(id)view doCommandBySelector:(SEL)cmd {
     if (cmd == @selector(insertNewline:)) {
         if (control == user) {
-            [self.window makeFirstResponder:pass];
+            [window makeFirstResponder:pass];
         } else if (control == pass) {
             [self logIn];
         }
@@ -150,42 +152,54 @@ char *sp_password = NULL;
 void tellmate(const char *what);
 - (void)logIn {
     // we store the creds in variables so as to not transport the password over TCP in plain-text
-    sp_username = malloc([user.stringValue lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
-    sp_password = malloc([pass.stringValue lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
-    strcpy(sp_username, user.stringValue.UTF8String);
-    strcpy(sp_password, pass.stringValue.UTF8String);
+    sp_username = strdup(user.stringValue.UTF8String);
+    sp_password = strdup(pass.stringValue.UTF8String);
     tellmate("ctc:spotify.login()");
 
-    // delay or crashes
-    [[NSApp delegate] performSelector:@selector(resetMenu) withObject:0 afterDelay:0.0];
+    login.title = @"…";
+    user.enabled = pass.enabled = login.enabled = NO;
+    gself = self;
+
+    //TODO prevent closing the window during login
 }
 
+- (void)loginFailed {
+    login.title = @"Log In";
+    user.enabled = pass.enabled = login.enabled = YES;
 
-// - (CAKeyframeAnimation *)shakeAnimation:(NSRect)frame {
-//     #define numberOfShakes 2
-//     #define vigourOfShake 0.05
-//     #define durationOfShake 0.4;
+    const float vigourOfShake = 0.05;
 
-//     CAKeyframeAnimation *shakeAnimation = [CAKeyframeAnimation animation];
+    NSRect frame = [window frame];
+    CGMutablePathRef shakePath = CGPathCreateMutable();
+    CGPathMoveToPoint(shakePath, NULL, NSMinX(frame), NSMinY(frame));
+    for (int i = 0; i < 2; ++i) {
+        CGPathAddLineToPoint(shakePath, NULL, NSMinX(frame) - frame.size.width * vigourOfShake, NSMinY(frame));
+        CGPathAddLineToPoint(shakePath, NULL, NSMinX(frame) + frame.size.width * vigourOfShake, NSMinY(frame));
+    }
+    CGPathAddLineToPoint(shakePath, NULL, NSMinX(frame) - frame.size.width * vigourOfShake / 2, NSMinY(frame));
+    CGPathAddLineToPoint(shakePath, NULL, NSMinX(frame) + frame.size.width * vigourOfShake / 2, NSMinY(frame));
+    CGPathCloseSubpath(shakePath);
 
-//     CGMutablePathRef shakePath = CGPathCreateMutable();
-//     CGPathMoveToPoint(shakePath, NULL, NSMinX(frame), NSMinY(frame));
-//     int index;
-//     for (index = 0; index < numberOfShakes; ++index) {
-//         CGPathAddLineToPoint(shakePath, NULL, NSMinX(frame) - frame.size.width * vigourOfShake, NSMinY(frame));
-//         CGPathAddLineToPoint(shakePath, NULL, NSMinX(frame) + frame.size.width * vigourOfShake, NSMinY(frame));
-//     }
-//     CGPathCloseSubpath(shakePath);
-//     shakeAnimation.path = shakePath;
-//     shakeAnimation.duration = durationOfShake;
-//     return shakeAnimation;
-// }
+    CAKeyframeAnimation *anim = [CAKeyframeAnimation animation];
+    anim.path = shakePath;
+    anim.duration = 0.4;
 
-// - (void)loginFailed {
-//     [self.window setAnimations:@{@"frameOrigin": [self shakeAnimation:self.window.frame]}];
-// }
+    [window setAnimations:[NSDictionary dictionaryWithObject:anim forKey:@"frameOrigin"]];
+    [window.animator setFrameOrigin:frame.origin];
+
+    CGPathRelease(shakePath);
+
+    [pass becomeFirstResponder];
+}
 
 @end
+
+
+void spcb_logged_in(sp_session *session, sp_error err) {
+    if (err != SP_ERROR_OK)
+        [gself performSelectorOnMainThread:@selector(loginFailed) withObject:nil waitUntilDone:NO];
+    // else state change is handled in AppDelegate
+}
 
 
 @implementation BGView
@@ -206,10 +220,6 @@ void tellmate(const char *what);
     [line lineToPoint:NSMakePoint(w, y-1.5)];
     [[NSColor colorWithCalibratedWhite:211.f/255.f alpha:1] set];
     [line stroke];
-}
-- (void)dealloc {
-    [bg release];
-    [super dealloc];
 }
 @end
 
