@@ -38,7 +38,6 @@ int main(int argc, const char **argv) {
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
     thread = [[NSThread alloc] initWithTarget:self selector:@selector(luaInBackground) object:nil];
-    thread.threadPriority = 1.0;
     [thread start];
 
     artistMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:NULL keyEquivalent:@""];
