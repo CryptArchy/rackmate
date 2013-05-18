@@ -29,3 +29,12 @@
 @interface MBWebSocketClient : NSObject
 - (void)send:(NSString *)string;
 @end
+
+
+typedef uint32_t IOPMAssertionID;
+
+@interface MBInsomnia : NSObject {
+    IOPMAssertionID assertionID;
+}
+- (void)toggle:(BOOL)on;
+@end

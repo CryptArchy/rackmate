@@ -1,7 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 #import "AppDelegate.h"
-#import "MBInsomnia.h"
 #import "SPMediaKeyTap.h"
 #import "spotify.h"
 #import "JSONKit.h"
@@ -66,6 +65,7 @@ int lua_thread_loop();
             spotifyStatusMenuItem.title = o[@"spotify"];
         }
         BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
+        BOOL const playing = [o[@"state"] isEqual:@"playing"];
         artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = pauseMenuItem.hidden = stopped;
         if (!stopped) {
             int i = [o[@"index"] intValue];
@@ -81,6 +81,7 @@ int lua_thread_loop();
             pauseMenuItem.state = NSOffState;
             pauseMenuItem.title = @"Pause";
         }
+        [insomnia toggle:playing];
     } @catch (id e) {
         NSLog(@"%@", e);
     }
