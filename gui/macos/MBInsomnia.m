@@ -1,7 +1,9 @@
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #import "AppDelegate.h"
 
-@implementation MBInsomnia
+@implementation MBInsomnia {
+    IOPMAssertionID assertionID;
+}
 
 - (void)dealloc {
     [self toggle:NO];

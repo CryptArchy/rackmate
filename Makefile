@@ -45,7 +45,6 @@ MACOS_LDFLAGS = -framework Carbon -framework IOKit -framework QuartzCore -framew
 macos: Rackmate.app/Contents/MacOS/rackmate.lua \
        Rackmate.app/Contents/MacOS/Rackmate \
        Rackmate.app/Contents/Info.plist \
-       Rackmate.app/Contents/Resources/MainMenu.nib \
        Rackmate.app/Contents/MacOS/libspotify.dylib \
        $(patsubst gui/macos/%.png, Rackmate.app/Contents/Resources/%.png, $(wildcard gui/macos/*.png))
 
@@ -54,8 +53,6 @@ Rackmate.app/Contents/MacOS/Rackmate: $(MACOS_OBJS) | Rackmate.app/Contents/MacO
 	xcrun install_name_tool -change @rpath/libspotify.dylib @executable_path/libspotify.dylib $@
 Rackmate.app/Contents/Info.plist: gui/macos/Info.plist
 	cp $< $@
-Rackmate.app/Contents/Resources/MainMenu.nib: gui/macos/MainMenu.xib | Rackmate.app/Contents/Resources
-	ibtool --output-format binary1 --compile $@ $<
 Rackmate.app/Contents/MacOS/libspotify.dylib: lib/libspotify.dylib
 	cp $< $@
 Rackmate.app/Contents/Resources/%.png: gui/macos/%.png

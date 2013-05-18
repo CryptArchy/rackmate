@@ -2,14 +2,32 @@
 #import <Cocoa/Cocoa.h>
 #import "AppDelegate.h"
 #import "SPMediaKeyTap.h"
-#import "spotify.h"
 #import "JSONKit.h"
 
-extern sp_session *session;
 int lua_thread_loop();
 
 
+int main(int argc, const char **argv) {
+    [NSApplication sharedApplication];
+    [NSApp setDelegate:[AppDelegate new]];
+    [NSApp run];
+    return 0;
+}
+
+
 @implementation AppDelegate {
+    NSStatusItem *statusItem;
+    NSMenu *menu;
+    NSMenuItem *artistMenuItem;
+    NSMenuItem *trackMenuItem;
+    NSMenuItem *spotifyStatusMenuItem;
+    NSMenuItem *separator;
+    NSMenuItem *pauseMenuItem;
+    NSThread *thread;
+
+    MBInsomnia *insomnia;
+    MBWebSocketClient *ws;
+
     BOOL notNow;
     BOOL waitingToQuit;
 }
@@ -19,11 +37,31 @@ int lua_thread_loop();
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
-    ws = [MBWebSocketClient new];
-
     thread = [[NSThread alloc] initWithTarget:self selector:@selector(luaInBackground) object:nil];
     thread.threadPriority = 1.0;
     [thread start];
+
+    artistMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:NULL keyEquivalent:@""];
+    trackMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:NULL keyEquivalent:@""];
+    pauseMenuItem = [[NSMenuItem alloc] initWithTitle:@"Pause" action:@selector(pause) keyEquivalent:@""];
+    separator = [NSMenuItem separatorItem];
+    spotifyStatusMenuItem = [[NSMenuItem alloc] initWithTitle:@"unintialized" action:NULL keyEquivalent:@""];
+    NSMenuItem *home = [[NSMenuItem alloc] initWithTitle:@"Open rackit.co…" action:@selector(openHomeURL) keyEquivalent:@""];
+    NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit Rackmate" action:@selector(terminate:) keyEquivalent:@""];
+
+    pauseMenuItem.target = home.target = self;
+    artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = pauseMenuItem.hidden = YES;
+
+    menu = [NSMenu new];
+    [menu addItem:artistMenuItem];
+    [menu addItem:trackMenuItem];
+    [menu addItem:pauseMenuItem];
+    [menu addItem:separator];
+    [menu addItem:spotifyStatusMenuItem];
+    [menu addItem:[NSMenuItem separatorItem]];
+    [menu addItem:home];
+    [menu addItem:[NSMenuItem separatorItem]];
+    [menu addItem:quit];
 
     statusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:29] retain];
     [self resetMenu];
@@ -41,12 +79,8 @@ int lua_thread_loop();
                                                            selector:@selector(onSleepNotification:)
                                                                name:NSWorkspaceWillSleepNotification
                                                              object:NULL];
-    artistMenuItem.hidden = YES;
-    trackMenuItem.hidden = YES;
-    separator.hidden = YES;
-    pauseMenuItem.hidden = YES;
-
     insomnia = [MBInsomnia new];
+    ws = [MBWebSocketClient new];
 }
 
 - (void)webSocketData:(NSData *)msg {
@@ -135,11 +169,11 @@ int lua_thread_loop();
     [ws send:@"{\"pause\": true}"];
 }
 
-- (IBAction)openHomeURL:(id)sender {
+- (IBAction)openHomeURL {
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://rackit.co"]];
 }
 
-- (IBAction)pause:(NSMenuItem *)menuItem {
+- (IBAction)pause {
     [ws send:@"{\"play\": \"toggle\"}"];
 }
 

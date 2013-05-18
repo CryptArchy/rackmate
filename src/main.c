@@ -151,14 +151,6 @@ static int lua_string_trim(lua_State *L) {
 
 ///////////////////////////////////////////////////////////////////////// main
 #ifdef RACKIT_GUI
-    #ifdef __APPLE__
-        int NSApplicationMain(int, const char**);
-
-        int main(int argc, const char **argv) {
-            return NSApplicationMain(argc, argv);
-        }
-    #endif
-
     int lua_thread_loop(const char *MAIN_LUA_PATH) {
 #else
     #define MAIN_LUA_PATH "src/main.lua"
