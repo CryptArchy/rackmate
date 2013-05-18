@@ -91,7 +91,7 @@ local function actual_play()
                      local jj = _.indexOf(tape.tracks, function(track)
                         return track.partnerID == url
                      end)
-                     if jj > 0 then return ii, jj end
+                     if jj then return ii, jj end
                   end
                   return index, subindex -- FIXME what TODO?
                end)()
