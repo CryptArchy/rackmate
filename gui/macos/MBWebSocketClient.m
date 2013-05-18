@@ -141,8 +141,8 @@ static unsigned long long ntohll(unsigned long long v) {
  * before"onSocket:didAcceptNewSocket:" or "onSocket:didConnectToHost:".
  **/
 - (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err {
-    //TODO:ERROR
-    NSLog(@"%@", err);
+    if (err.code != 61) // 61 is no socket to bind to that happens during startup
+        NSLog(@"%@", err);
     if (sock == socket)
         [self performSelector:@selector(connect) withObject:nil afterDelay:1];
 }
