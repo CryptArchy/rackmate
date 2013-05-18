@@ -56,12 +56,10 @@ int lua_thread_loop();
             if ([o[@"spotify"] isEqual:@"loggedin"]) {
                 [self resetMenu];
                 statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
-            } else {
-                if (!notNow && !statusItem.view && [o[@"spotify"] isEqual:@"loggedout"])
-                    [self showLogIn];
-                // else
-                //     statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
-            }
+            } else if (!notNow && !statusItem.view && [o[@"spotify"] isEqual:@"loggedout"])
+                [self showLogIn];
+            else
+                statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
             spotifyStatusMenuItem.title = o[@"spotify"];
         }
         BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
@@ -85,8 +83,6 @@ int lua_thread_loop();
     } @catch (id e) {
         NSLog(@"%@", e);
     }
-
-    //statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
 }
 
 - (void)resetMenu {
