@@ -158,12 +158,10 @@ static const char *getstate() {
     switch (sp_session_connectionstate(session)) {
         case SP_CONNECTION_STATE_LOGGED_OUT:   return "loggedout";
         case SP_CONNECTION_STATE_LOGGED_IN:    return "loggedin";
-        case SP_CONNECTION_STATE_DISCONNECTED: return "unauthed";
+        case SP_CONNECTION_STATE_DISCONNECTED:
         case SP_CONNECTION_STATE_OFFLINE:      return "offline";
-
         case SP_CONNECTION_STATE_UNDEFINED:
-        default:
-            return "unknown";
+        default:                               return "unknown";
     }
 }
 
