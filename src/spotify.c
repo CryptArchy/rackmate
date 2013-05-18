@@ -4,6 +4,8 @@
 #include "lualib.h"
 #include "lauxlib.h"
 #include <pthread.h>
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
 #include <signal.h>
 #include "spotify.h"
 #include <stdbool.h>
@@ -21,27 +23,11 @@ extern void spcb_logged_in(sp_session *session, sp_error err);
     }
 
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-void tellmate(const char *what) {
-    struct sockaddr_in serv_addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(13581),
-        .sin_addr = { .s_addr = inet_addr("127.0.0.1") }
-    };
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    int rv = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-    if (rv == -1)
-        return perror("ctc:connect");
-    rv = write(sockfd, what, strlen(what));
-    if (rv == -1)
-        perror("ctc:write");
-    else {
-        if (rv != strlen(what)) fprintf(stderr, "Didn't send everything!\n");
-        close(sockfd);
-    }
-}
+#define AL_NUM_BUFFERS 22    // Spotify gives us 2048 frames per callback, so 22
+ALCdevice *al_device = NULL; // buffers gives us ~1s audio at a 44100 sample rate
+ALuint al_source;
+ALuint al_buffers[AL_NUM_BUFFERS];
+
 
 
 #define HERR(fn) {sp_error sperr = (fn); if (sperr) fprintf(stderr, "%s\n", sp_error_message(sperr)); }
@@ -49,7 +35,6 @@ void tellmate(const char *what) {
 sp_session *session = NULL;
 static sp_track *loaded_track = NULL;
 static sp_track *prefetched_track = NULL;
-static audio_fifo_t *fifo;
 static int duration; // in frames
 static int position; // strictly, decoded position in frames
 static bool asked_for_next_track = false;
@@ -68,10 +53,18 @@ static void log(sp_session *session, const char *message) {
 }
 
 static void ffs_go(lua_State *L) {
-    if (!fifo) {
-        fifo = malloc(sizeof(audio_fifo_t));
-        audio_init(fifo);
+    if (!al_device) {
+        #define HHERR if (alGetError() != AL_NO_ERROR) fprintf(stderr, "Error starting :(\n");
+
+        al_device = alcOpenDevice(NULL); HHERR
+        ALCcontext *context = alcCreateContext(al_device, NULL); HHERR
+        alcMakeContextCurrent(context);           HHERR
+        alListenerf(AL_GAIN, 1.0f);               HHERR
+        alDistanceModel(AL_NONE);                 HHERR
+        alGenBuffers(AL_NUM_BUFFERS, al_buffers); HHERR
+        alGenSources(1, &al_source);              HHERR
     }
+
     asked_for_next_track = false;
     position = 0;
     duration = sp_track_duration(loaded_track) * 44100 / 1000;
@@ -98,30 +91,35 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format, const 
     if (num_frames == 0)
         return 0; // Audio discontinuity, do nothing
 
-    //TODO use a ringbuffer FFS
-    pthread_mutex_lock(&fifo->mutex);
-
-    /* Buffer one second of audio */
-    if (fifo->qlen > format->sample_rate) {
-        pthread_mutex_unlock(&fifo->mutex);
-        return 0;
+    ALint value;
+    alGetSourcei(al_source, AL_BUFFERS_QUEUED, &value);
+    if (value == AL_NUM_BUFFERS) {
+        alGetSourcei(al_source, AL_SOURCE_STATE, &value);
+        if (value == AL_STOPPED || value == AL_INITIAL)
+            alSourcePlay(al_source);
+        alGetSourcei(al_source, AL_BUFFERS_PROCESSED, &value);
+        if (value) {
+            ALuint buffer;
+            alSourceUnqueueBuffers(al_source, 1, &buffer);
+            alBufferData(buffer,
+                     format->channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16,
+                     frames,
+                     num_frames * sizeof(int16_t) * format->channels,
+                     format->sample_rate);
+            alSourceQueueBuffers(al_source, 1, &buffer);
+        } else
+            return 0; // try again later thanks
+    } else {
+        alBufferData(al_buffers[value],
+                     AL_FORMAT_STEREO16,
+                     frames,
+                     num_frames * sizeof(int16_t) * format->channels,
+                     format->sample_rate);
+        alSourceQueueBuffers(al_source, 1, &al_buffers[value]);
     }
 
-    size_t sz = num_frames * sizeof(int16_t) * format->channels;
-
-    audio_fifo_data_t *afd = malloc(sizeof(audio_fifo_data_t) + sz);
-    memcpy(afd->samples, frames, sz);
-
-    afd->nsamples = num_frames;
-    afd->rate = format->sample_rate;
-    afd->channels = format->channels;
-
-    TAILQ_INSERT_TAIL(&fifo->q, afd, link);
-    fifo->qlen += num_frames;
-
-    pthread_cond_signal(&fifo->cond);
-    pthread_mutex_unlock(&fifo->mutex);
-
+    // TODO position should be done at the OUTPUT portion dumbo
+    // NOTE though the fetch should be done before all decoding has been seeded
     position += num_frames;
     if (!asked_for_next_track && position > duration - 20 * 44100) {
         asked_for_next_track = true;
@@ -262,6 +260,11 @@ static int lua_spotify_play(lua_State *L) {
     foo(onexhaust);
     #undef foo
 
+    if (al_source) {
+        alSourceStop(al_source);
+        alSourcei(al_source, AL_BUFFER, 0); // detach buffers
+    }
+
     sp_link *link = sp_link_create_from_string(luaL_checkstring(L, 1));
     sp_track_add_ref(loaded_track = sp_link_as_track(link));
     sp_link_release(link);
@@ -273,17 +276,25 @@ static int lua_spotify_play(lua_State *L) {
 }
 
 static int lua_spotify_pause(lua_State *L) {
-    if (loaded_track && lua_gettop(L) == 1)
-        sp_session_player_play(session, !lua_toboolean(L, 1));
+    if (loaded_track && lua_gettop(L) == 1) {
+        const bool pause = lua_toboolean(L, 1);
+        sp_session_player_play(session, !pause);
+        if (pause) alSourcePause(al_source); else alSourcePlay(al_source);
+    }
     return 0;
 }
 
 static int lua_spotify_stop(lua_State *L) {
+    if (al_device) {
+        alSourceStop(al_source);
+        alSourcei(al_source, AL_BUFFER, 0); // detach buffers
+        alDeleteBuffers(AL_NUM_BUFFERS, al_buffers);
+        alDeleteSources(1, &al_source);
+        alcCloseDevice(al_device);
+        al_device = NULL; }
     sp_session_player_unload(session);
-    if (loaded_track)
-        sp_track_release(loaded_track);
-    if (prefetched_track)
-        sp_track_release(prefetched_track);
+    if (loaded_track) sp_track_release(loaded_track);
+    if (prefetched_track) sp_track_release(prefetched_track);
     prefetched_track = loaded_track = NULL;
     return 0;
 }

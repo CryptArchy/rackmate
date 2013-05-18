@@ -67,6 +67,31 @@ static const char *syspath(int key) {
 }
 
 
+///////////////////////////////////////////////////////////////////// tellmate
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
+void tellmate(const char *what) {
+    struct sockaddr_in serv_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(13581),
+        .sin_addr = { .s_addr = inet_addr("127.0.0.1") }
+    };
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int rv = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    if (rv == -1)
+        return perror("ctc:connect");
+    rv = write(sockfd, what, strlen(what));
+    if (rv == -1)
+        perror("ctc:write");
+    else {
+        if (rv != strlen(what)) fprintf(stderr, "Didn't send everything!\n");
+        close(sockfd);
+    }
+}
+
+
 //////////////////////////////////////////////////////////////////// lua utils
 int lua_backtrace(lua_State *L) {
     size_t n;
