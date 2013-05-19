@@ -53,9 +53,9 @@ const char *homepath() {
 const char *syspath(int key) {
     switch (key) {
     #ifdef __APPLE__
-        case 0:  return "Library/Caches/Rackmate";
-        case 1:  return "Library/Preferences/Rackmate";
-        default: return "Library/Application Support/Rackmate";
+        case 0:  return "Library/Caches/co.rackit.mate";
+        case 1:  return "Library/Preferences/co.rackit.mate";
+        default: return "Library/Application Support/Rackmate"; //yes, typically not reverse URL here
     #elif _WIN32
     #error unimplemented
     #else
