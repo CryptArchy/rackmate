@@ -364,8 +364,7 @@ static int lws_sock_write(lua_State *L) {
     #define MSG_NOSIGNAL 0
     #endif
 
-    int fd = lua_tosockfd(L, 1);
-
+    const int fd = lua_tosockfd(L, 1);
     size_t n;
     const char *payload = lua_tolstring(L, 2, &n);
     int rv = send(fd, payload, n, MSG_NOSIGNAL);

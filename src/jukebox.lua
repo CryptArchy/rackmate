@@ -76,7 +76,7 @@ local function actual_play()
    resolver.resolve(np(), function(track, url)
       spotify.play(url, {
          next = function()
-            return next_resolvable_track().partnerID
+            return (next_resolvable_track() or {}).partnerID
          end,
          onexhaust = function()
             sync_if_changes(function()

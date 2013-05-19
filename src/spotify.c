@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 extern void spcb_logged_in(sp_session *session, sp_error err);
+static int lua_spotify_stop(lua_State *L);
 
 #define E_LUA_PCALL(p1, p2, p3) \
     if (lua_pcall(p1, p2, p3, 0) != 0) { \
@@ -138,10 +139,13 @@ static void notify_main_thread(sp_session *session) {
 }
 
 static void end_of_track(sp_session *session) {
+    assert(pthread_main_np());
+
     if (loaded_track)
         sp_track_release(loaded_track);
     if (prefetched_track) {
         loaded_track = prefetched_track;
+        prefetched_track = NULL;
         if (sp_track_error(loaded_track) == SP_ERROR_OK) {
             ffs_go(process_events_L);
         } else {
@@ -149,8 +153,11 @@ static void end_of_track(sp_session *session) {
             waiting_for_metadata = true;
         }
     } else {
-        fprintf(stderr, "No prefetched track\n");
-        loaded_track = NULL;
+        // TODO call the next track function again anyway
+        // NOTE *this* is indeed invoked on the main thread
+        lua_spotify_stop(process_events_L);
+        lua_rawgeti(process_events_L, LUA_REGISTRYINDEX, callback_onexhaust);
+        lua_call(process_events_L, 0, 0);
     }
 }
 
