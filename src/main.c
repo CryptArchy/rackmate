@@ -154,7 +154,7 @@ static int lua_string_trim(lua_State *L) {
 pthread_t lua_thread = NULL;
 #endif
 
-#ifdef RACKIT_GUI
+#ifdef RACKMATE_GUI
     int lua_thread_loop(const char *MAIN_LUA_PATH) {
 #else
     #define MAIN_LUA_PATH "src/main.lua"
@@ -199,7 +199,7 @@ pthread_t lua_thread = NULL;
             rv = lua_pcall(L, 0, 0, lua_gettop(L) - 1);
         }
 
-    #ifdef RACKIT_GUI
+    #ifdef RACKMATE_GUI
         lua_close(L);
     #endif
         return rv;

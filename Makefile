@@ -40,7 +40,7 @@ JSONKIT_SRCS = vendor/JSONKit/JSONKit.m
 SPMKT_SRCS = vendor/SPMediaKeyTap/SPMediaKeyTap.m vendor/SPMediaKeyTap/SPInvocationGrabbing/NSObject+SPInvocationGrabbing.m
 MACOS_SRCS := $(wildcard gui/macos/*.m) $(SPMKT_SRCS) $(JSONKIT_SRCS)
 MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
-MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKIT_GUI
+MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKMATE_GUI
 MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage -mmacosx-version-min=10.4
 #to quieten:                            JSONKit
 MACOS_LDFLAGS = -framework Carbon -framework IOKit -framework QuartzCore -framework Cocoa $(LDFLAGS) $(CPPFLAGS)
