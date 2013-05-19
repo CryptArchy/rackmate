@@ -36,7 +36,7 @@ static bool mkpath(const char *path) {
     return mkdir(opath, S_IRWXU) == 0;
 }
 
-static const char *homepath() {
+const char *homepath() {
 #ifdef _WIN32
     #error unimplemented
 #else
@@ -50,7 +50,7 @@ static const char *homepath() {
 #endif
 }
 
-static const char *syspath(int key) {
+const char *syspath(int key) {
     switch (key) {
     #ifdef __APPLE__
         case 0:  return "Library/Caches/Rackmate";

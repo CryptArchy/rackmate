@@ -1,10 +1,10 @@
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 #import "AppDelegate.h"
+#import "rackmate.h"
 #import "SPMediaKeyTap.h"
 #import "JSONKit.h"
 
-int lua_thread_loop();
 
 
 int main(int argc, const char **argv) {

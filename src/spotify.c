@@ -1,11 +1,11 @@
 #include "../keys.c"
-#include "extlib.h"
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
 #include <pthread.h>
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
+#include "rackmate.h"
 #include <signal.h>
 #include "spotify.h"
 #include <stdbool.h>
