@@ -53,7 +53,7 @@ static void log(sp_session *session, const char *message) {
     fputs(message, stderr);
 }
 
-static void ffs_go(lua_State *L) {
+static void ffs_go(lua_State *L) {                    assert(is_lua_thread());
     if (!al_device) {
         #define HHERR if (alGetError() != AL_NO_ERROR) fprintf(stderr, "Error starting :(\n");
 
@@ -81,7 +81,7 @@ static void ffs_go(lua_State *L) {
     E_LUA_PCALL(L, 1, 0);
 }
 
-static void metadata_updated(sp_session *session) {
+static void metadata_updated(sp_session *session) {   assert(is_lua_thread());
     if (waiting_for_metadata) {
         ffs_go(process_events_L);
         waiting_for_metadata = false;
@@ -89,6 +89,8 @@ static void metadata_updated(sp_session *session) {
 }
 
 static int music_delivery(sp_session *sess, const sp_audioformat *format, const void *frames, int num_frames) {
+    assert(!is_lua_thread());
+
     if (num_frames == 0)
         return 0; // Audio discontinuity, do nothing
 
@@ -138,8 +140,7 @@ static void notify_main_thread(sp_session *session) {
     tellmate("ctc:spotify.process_events()");
 }
 
-static void end_of_track(sp_session *session) {
-    assert(pthread_main_np());
+static void end_of_track(sp_session *session) {       assert(is_lua_thread());
 
     if (loaded_track)
         sp_track_release(loaded_track);
@@ -173,6 +174,8 @@ static const char *getstate() {
 }
 
 static void connectionstate_updated(sp_session *sess) {
+    assert(is_lua_thread());
+
     lua_State *L = process_events_L;
     if (callback_usability_status_change) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, callback_usability_status_change);
@@ -207,6 +210,8 @@ sp_session_callbacks session_callbacks = {
 
 
 static void search_complete(sp_search *search, void *userdata) {
+    assert(is_lua_thread());
+
     lua_State *L = process_events_L;
     const int R = (int)userdata;
 
@@ -236,7 +241,7 @@ static void search_complete(sp_search *search, void *userdata) {
     sp_search_release(search);
 }
 
-static int lua_spotify_search(lua_State *L) {
+static int lua_spotify_search(lua_State *L) {         assert(is_lua_thread());
     lua_pushvalue(L, 2);
     sp_search_create(session,
                      luaL_checkstring(L, 1),
@@ -246,7 +251,7 @@ static int lua_spotify_search(lua_State *L) {
     return 0;
 }
 
-static int lua_spotify_process_events(lua_State *L) {
+static int lua_spotify_process_events(lua_State *L) { assert(is_lua_thread());
     process_events_L = L;
     int timeout = 0;
     while (timeout == 0)
@@ -254,7 +259,7 @@ static int lua_spotify_process_events(lua_State *L) {
     return 0;
 }
 
-static int lua_spotify_play(lua_State *L) {
+static int lua_spotify_play(lua_State *L) {           assert(is_lua_thread());
     #define foo(token) \
         if (callback_ ## token) luaL_unref(L, LUA_REGISTRYINDEX, callback_ ## token); \
         lua_pushliteral(L, #token); \
@@ -280,7 +285,7 @@ static int lua_spotify_play(lua_State *L) {
     return 0;
 }
 
-static int lua_spotify_pause(lua_State *L) {
+static int lua_spotify_pause(lua_State *L) {          assert(is_lua_thread());
     if (loaded_track && lua_gettop(L) == 1) {
         const bool pause = lua_toboolean(L, 1);
         sp_session_player_play(session, !pause);
@@ -289,7 +294,7 @@ static int lua_spotify_pause(lua_State *L) {
     return 0;
 }
 
-static int lua_spotify_stop(lua_State *L) {
+static int lua_spotify_stop(lua_State *L) {           assert(is_lua_thread());
     if (al_device) {
         alSourceStop(al_source);
         alSourcei(al_source, AL_BUFFER, 0); // detach buffers
@@ -304,7 +309,7 @@ static int lua_spotify_stop(lua_State *L) {
     return 0;
 }
 
-static int lua_spotify_prefetch(lua_State *L) {
+static int lua_spotify_prefetch(lua_State *L) {       assert(is_lua_thread());
     const char *url = lua_tostring(L, 1);
     if (!url) return 0;
     sp_link *link = sp_link_create_from_string(url);
@@ -325,7 +330,7 @@ static int lua_spotify_spool(lua_State *L) {
 
 extern char *sp_password;
 extern char *sp_username;
-static int lua_spotify_login(lua_State *L) {
+static int lua_spotify_login(lua_State *L) {          assert(is_lua_thread());
     if (lua_gettop(L) >= 1) {
         lua_pushliteral(L, "onchange");
         lua_gettable(L, -2);
@@ -375,18 +380,18 @@ static int lua_spotify_login(lua_State *L) {
     return 0;
 }
 
-static int lua_spotify_logout(lua_State *L) {
+static int lua_spotify_logout(lua_State *L) {         assert(is_lua_thread());
     if (session)
         sp_session_logout(session);
     return 0;
 }
 
-static int lua_spotify_getstate(lua_State *L) {
+static int lua_spotify_getstate(lua_State *L) {       assert(is_lua_thread());
     lua_pushstring(L, getstate());
     return 1;
 }
 
-int luaopen_spotify(lua_State *L) {
+int luaopen_spotify(lua_State *L) {                   assert(is_lua_thread());
     luaL_register(L, "spotify", (struct luaL_reg[]){
         {"login", lua_spotify_login},
         {"logout", lua_spotify_logout},

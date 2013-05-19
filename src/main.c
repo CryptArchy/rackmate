@@ -150,6 +150,10 @@ static int lua_string_trim(lua_State *L) {
 
 
 ///////////////////////////////////////////////////////////////////////// main
+#ifndef NDEBUG
+pthread_t lua_thread = NULL;
+#endif
+
 #ifdef RACKIT_GUI
     int lua_thread_loop(const char *MAIN_LUA_PATH) {
 #else
@@ -157,6 +161,10 @@ static int lua_string_trim(lua_State *L) {
 
     int main(int argc, char **argv) {
 #endif
+    #ifndef NDEBUG
+        lua_thread = pthread_self();
+    #endif
+
         lua_State *L = lua_open();
         luaL_openlibs(L);
 

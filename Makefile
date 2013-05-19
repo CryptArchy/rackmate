@@ -10,14 +10,18 @@ UNDERSCORE_SHA = e737917140e555cb8c45f5367e93f11b9ab680cb
 
 .DELETE_ON_ERROR:
 
+ifeq "$(RELEASE)" "1"
+CPPFLAGS += -DNDEBUG
+endif
+
+ifeq "$(shell uname)" "Darwin"
+LDFLAGS += -framework OpenAL -framework Security
+endif
+
 
 ####################################################################### daemon
 SRCS := $(shell find src -name \*.c) $(shell find vendor -name \*.c)
 OBJS = $(patsubst %.c, .make/%.o, $(SRCS))
-
-ifeq "$(shell uname)" "Darwin"
-	LDFLAGS += -framework OpenAL -framework Security
-endif
 
 rackmate: $(OBJS) .make/$(UNDERSCORE_SHA)
 	$(CC) $(LDFLAGS) $(OBJS) -o $@
