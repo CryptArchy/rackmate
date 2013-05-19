@@ -5,14 +5,23 @@
 #import "SPMediaKeyTap.h"
 #import "JSONKit.h"
 
+#define NEXT_RACKMATE "rackmate-macos-1.tar.bz2"
+#define NEXT_RACKMATE_DLPATH [NSString stringWithFormat:@"%s/%s/" NEXT_RACKMATE, homepath(), syspath(0)]
 
+@interface AppDelegate () <NSURLDownloadDelegate>
+@end
+
+static void relaunch() {
+    const char *path = [NSBundle mainBundle].executablePath.fileSystemRepresentation;
+    execl(path, path, NULL);
+}
 
 int main(int argc, const char **argv) {
     [NSApplication sharedApplication];
     [NSApp setDelegate:[AppDelegate new]];
     [NSApp run];
-    return 0;
 }
+
 
 
 @implementation AppDelegate {
@@ -30,6 +39,8 @@ int main(int argc, const char **argv) {
 
     BOOL notNow;
     BOOL waitingToQuit;
+    BOOL updateWaiting;
+    BOOL extracting;
 }
 
 + (void)initialize {
@@ -80,6 +91,17 @@ int main(int argc, const char **argv) {
                                                              object:NULL];
     insomnia = [MBInsomnia new];
     ws = [MBWebSocketClient new];
+
+    // fire our first update check in 30 minutes, this is to prevent a constant
+    // update-restart cycle that is possible if a) user hasn't run rackmate for
+    // several updates or b) I accidentally upload a build with the wrong version
+    // number (in which case this 30 minute buffer will give me time to fix it
+    // when detected).
+    id timer = [[NSTimer alloc] initWithFireDate:[NSDate dateWithTimeIntervalSinceNow:30*60]
+                                        interval:60*60*24 target:self
+                                        selector:@selector(checkForUpdates)
+                                        userInfo:nil repeats:YES];
+    [[NSRunLoop currentRunLoop] addTimer:timer forMode:NSDefaultRunLoopMode];
 }
 
 - (void)webSocketData:(NSData *)msg {
@@ -113,6 +135,11 @@ int main(int argc, const char **argv) {
             pauseMenuItem.title = @"Pause";
         }
         [insomnia toggle:playing];
+
+        if (stopped && updateWaiting) {
+            atexit(relaunch); // [NSApp run] never returns, so this is the only option
+            [NSApp terminate:self];
+        }
     } @catch (id e) {
         NSLog(@"%@", e);
     }
@@ -154,6 +181,7 @@ int main(int argc, const char **argv) {
         return NSTerminateNow;
     //TODO handle case where socket didn't bind
     [ws send:@"\"quit\""];
+    NSLog(@"Sent quit");
     waitingToQuit = YES;
     // NSTerminateLater causes the RunLoop to not work with AsyncSocket
     return NSTerminateCancel;
@@ -195,6 +223,49 @@ int main(int argc, const char **argv) {
 			[ws send:@"{\"play\": \"prev\"}"];
 			break;
 	}
+}
+
+- (void)checkForUpdates {
+    if (updateWaiting)
+        return;
+    // we deliberately ALWAYS download, because I may have uploaded a bad
+    // update I need to replace in order to prevent a restart-cycle
+    id url = [NSURL URLWithString:@"http://rackit.co/static/downloads/" NEXT_RACKMATE];
+    id rq = [NSURLRequest requestWithURL:url];
+    [[NSURLDownload alloc] initWithRequest:rq delegate:self];
+}
+
+- (void)download:(NSURLDownload *)dl decideDestinationWithSuggestedFilename:(NSString *)filename {
+    [dl setDestination:NEXT_RACKMATE_DLPATH allowOverwrite:YES];
+}
+
+- (void)download:(NSURLDownload *)dl didFailWithError:(NSError *)error {
+    NSLog(@"%@", error);
+    [dl release]; //TODO:ERROR
+}
+
+- (void)downloadDidFinish:(NSURLDownload *)dl {
+    if (!extracting) {
+        extracting = YES;
+        [self performSelectorInBackground:@selector(extract) withObject:nil];
+    }
+    [dl release];
+}
+
+- (void)extract {
+    //TODO if we can't extract due to permissions we need to non-intrusively
+    // prompt for permissions, sadly. So check *first*
+    //TODO would be better to pipe the data to tar so that it is harder for
+    // another process to exploit us
+    NSAutoreleasePool *pool = [NSAutoreleasePool new];
+    NSTask *task = [NSTask new];
+    task.currentDirectoryPath = [NSBundle mainBundle].bundlePath;
+    task.arguments = @[@"xjf", NEXT_RACKMATE_DLPATH, @"--strip", @"1"];
+    task.launchPath = @"/usr/bin/tar";
+    [task launch];
+    [task waitUntilExit];
+    updateWaiting = YES;
+    extracting = NO;
 }
 
 @end
