@@ -12,6 +12,8 @@ UNDERSCORE_SHA = e737917140e555cb8c45f5367e93f11b9ab680cb
 
 ifeq "$(RELEASE)" "1"
 CPPFLAGS += -DNDEBUG
+else
+CFLAGS += -Werror
 endif
 
 ifeq "$(shell uname)" "Darwin"
