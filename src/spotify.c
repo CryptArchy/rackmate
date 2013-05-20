@@ -24,8 +24,8 @@ static int lua_spotify_stop(lua_State *L);
     }
 
 
-#define AL_NUM_BUFFERS 22    // Spotify gives us 2048 frames per callback, so 22
-ALCdevice *al_device = NULL; // buffers gives us ~1s audio at a 44100 sample rate
+#define AL_NUM_BUFFERS 44    // Spotify gives us 2048 frames per callback, so
+ALCdevice *al_device = NULL; // this gives us ~2s audio at a 44100 sample rate
 ALuint al_source;
 ALuint al_buffers[AL_NUM_BUFFERS];
 
