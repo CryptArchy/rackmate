@@ -166,7 +166,8 @@ pthread_t lua_thread = NULL;
 #endif
     #ifndef NDEBUG
         lua_thread = pthread_self();
-    #else
+    #endif
+    #ifndef RACKMATE_GUI
         if (argc > 2 && !strncmp(argv[1], "--user", 6)) {
             fprintf(stderr, "Password: ");
             char buf[128];
