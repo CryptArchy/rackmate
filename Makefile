@@ -2,21 +2,29 @@ ifneq "$(wildcard keys.c)" "keys.c"
   $(error You must create keys.c: see README)
 endif
 
-CPPFLAGS += -Iinclude -I.make/include
+UNAME := $(shell uname)
+
+ifeq "$(RELEASE)" "1"
+CFLAGS ?= -Oz -g
+CFLAGS += -w
+ifeq "$(UNAME)" "Darwin"
+CFLAGS  += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
+LDFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
+endif
+CPPFLAGS += -DNDEBUG
+else
 CFLAGS ?= -O0 -g
+CFLAGS += -Werror
+endif
+
+CPPFLAGS += -Iinclude -I.make/include
 CFLAGS += -std=c99
 LDFLAGS += -Llib -lspotify
 UNDERSCORE_SHA = e737917140e555cb8c45f5367e93f11b9ab680cb
 
 .DELETE_ON_ERROR:
 
-ifeq "$(RELEASE)" "1"
-CPPFLAGS += -DNDEBUG
-else
-CFLAGS += -Werror
-endif
-
-ifeq "$(shell uname)" "Darwin"
+ifeq "$(UNAME)" "Darwin"
 LDFLAGS += -framework OpenAL -framework Security
 endif
 
@@ -43,7 +51,7 @@ SPMKT_SRCS = vendor/SPMediaKeyTap/SPMediaKeyTap.m vendor/SPMediaKeyTap/SPInvocat
 MACOS_SRCS := $(wildcard gui/macos/*.m) $(SPMKT_SRCS) $(JSONKIT_SRCS)
 MACOS_OBJS = $(patsubst %.c, .make/macos/%.o, $(SRCS)) $(patsubst %.m, .make/macos/%.o, $(MACOS_SRCS))
 MACOS_CPPFLAGS = $(CPPFLAGS) -DRACKMATE_GUI
-MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage -mmacosx-version-min=10.4
+MACOS_CFLAGS = $(CFLAGS) -fno-objc-arc -Wno-deprecated-objc-isa-usage
 #to quieten:                            JSONKit
 MACOS_LDFLAGS = -framework Carbon -framework IOKit -framework QuartzCore -framework Cocoa $(LDFLAGS) $(CPPFLAGS)
 #to satisfy:               SPMediaKeyTap     MBInsomnia       MBStatusItemView
