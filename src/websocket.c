@@ -54,6 +54,7 @@ static int lws_bind(lua_State *L) {
     // prevent SIGPIPE, other platforms support MSG_NOSIGNAL in send() flags
     setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(int));
     #endif
+    fcntl(sockfd, F_SETFD, FD_CLOEXEC); // when we fork, don't be open in the child process
 
     struct sockaddr_in serv_addr = {
         .sin_family = AF_INET,
@@ -139,6 +140,7 @@ static int lws_select(lua_State *L) {
                 perror("accept");
                 continue;
             }
+            fcntl(fd, F_SETFD, FD_CLOEXEC);
             lua_push_sock(L, fd);
         } else {
             lua_push_clients(L);
