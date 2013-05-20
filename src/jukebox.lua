@@ -208,7 +208,9 @@ function play(data)
          pause(false)
       end
    elseif data == "next" then
-      if # tapes[index].tracks > subindex then
+      if state == "stopped" then
+         play{index = 1}
+      elseif # tapes[index].tracks > subindex then
          play{subindex = subindex + 1}
       elseif #tapes > index then
          play{index = index + 1}
@@ -216,7 +218,9 @@ function play(data)
          stop()
       end
    elseif data == "prev" or data == "previous" or data == "back" then
-      if subindex > 1 then
+      if state == "stopped" then
+         play{index = 1}
+      elseif subindex > 1 then
          play{subindex = subindex - 1}
       elseif index > 1 then
          play{index = index - 1}
