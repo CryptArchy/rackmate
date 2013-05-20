@@ -14,12 +14,7 @@
 static MBStatusItemView *gself = nil;
 
 
-@implementation MBStatusItemView {
-    NSTextField *user;
-    NSTextField *pass;
-    NSButton *login;
-    NSWindow *window;
-}
+@implementation MBStatusItemView
 
 - (void)dealloc {
     gself = nil;
@@ -127,7 +122,7 @@ static MBStatusItemView *gself = nil;
     [window setHasShadow:YES];
     [window setReleasedWhenClosed:NO];
 
-    [window.contentView setFrame:NSMakeRect(0, 0, W, H + HH)];
+    [(NSView *)window.contentView setFrame:NSMakeRect(0, 0, W, H + HH)];
     [window.contentView addSubview:view];
     [window.contentView addSubview:about];
 

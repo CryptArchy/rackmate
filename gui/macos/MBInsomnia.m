@@ -1,9 +1,7 @@
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #import "rackmate.h"
 
-@implementation MBInsomnia {
-    IOPMAssertionID assertionID;
-}
+@implementation MBInsomnia
 
 - (void)dealloc {
     [self toggle:NO];

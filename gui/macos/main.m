@@ -23,24 +23,7 @@ int main(int argc, const char **argv) {
 
 
 
-@implementation AppDelegate {
-    NSStatusItem *statusItem;
-    NSMenu *menu;
-    NSMenuItem *artistMenuItem;
-    NSMenuItem *trackMenuItem;
-    NSMenuItem *spotifyStatusMenuItem;
-    NSMenuItem *separator;
-    NSMenuItem *pauseMenuItem;
-    NSThread *thread;
-
-    MBInsomnia *insomnia;
-    MBWebSocketClient *ws;
-
-    BOOL notNow;
-    BOOL waitingToQuit;
-    BOOL updateWaiting;
-    BOOL extracting;
-}
+@implementation AppDelegate
 
 + (void)initialize {
 	[[NSUserDefaults standardUserDefaults] registerDefaults:@{kMediaKeyUsingBundleIdentifiersDefaultsKey: [SPMediaKeyTap defaultMediaKeyUserBundleIdentifiers]}];
@@ -113,27 +96,29 @@ int main(int argc, const char **argv) {
 - (void)webSocketData:(NSData *)msg {
     @try {
         NSDictionary *o = msg.objectFromJSONData;
-        if (o[@"spotify"]) {
-            if ([o[@"spotify"] isEqual:@"loggedin"]) {
+        id spotify = [o objectForKey:@"spotify"];
+        if (spotify) {
+            if ([spotify isEqual:@"loggedin"]) {
                 [self resetMenu];
                 statusItem.image = [NSImage imageNamed:@"NSStatusItem.png"];
-            } else if (!notNow && !statusItem.view && [o[@"spotify"] isEqual:@"loggedout"])
+            } else if (!notNow && !statusItem.view && [spotify isEqual:@"loggedout"])
                 [self showLogIn];
             else
                 statusItem.image = [NSImage imageNamed:@"NSStatusItemDisabled.png"];
-            spotifyStatusMenuItem.title = o[@"spotify"];
+            spotifyStatusMenuItem.title = spotify;
         }
-        BOOL const stopped = [o[@"state"] isEqual:@"stopped"];
-        BOOL const playing = [o[@"state"] isEqual:@"playing"];
+        id state = [o objectForKey:@"state"];
+        BOOL const stopped = [state isEqual:@"stopped"];
+        BOOL const playing = [state isEqual:@"playing"];
         artistMenuItem.hidden = trackMenuItem.hidden = separator.hidden = pauseMenuItem.hidden = stopped;
         if (!stopped) {
-            int i = [o[@"index"] intValue];
-            int si = [o[@"subindex"] intValue];
-            id track = o[@"tapes"][i][@"tracks"][si];
-            artistMenuItem.title = track[@"artist"];
-            trackMenuItem.title = track[@"title"];
+            int i = [[o objectForKey:@"index"] intValue];
+            int si = [[o objectForKey:@"subindex"] intValue];
+            id track = [[[[o objectForKey:@"tapes"] objectAtIndex:i] objectForKey:@"tracks"] objectAtIndex:si];
+            artistMenuItem.title = [track objectForKey:@"artist"];
+            trackMenuItem.title = [track objectForKey:@"title"];
         }
-        if ([o[@"state"] isEqual:@"paused"]) {
+        if ([state isEqual:@"paused"]) {
             pauseMenuItem.state = NSOnState;
             pauseMenuItem.title = @"Paused";
         } else {

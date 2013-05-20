@@ -40,18 +40,48 @@ extern int lua_thread_loop();
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 
-@interface MBStatusItemView : NSView
+@class AsyncSocket;
+
+@interface MBStatusItemView : NSView {
+    NSTextField *user;
+    NSTextField *pass;
+    NSButton *login;
+    NSWindow *window;
+}
 @end
 
-@interface MBWebSocketClient : NSObject
+@interface MBWebSocketClient : NSObject {
+    AsyncSocket *socket;
+}
 - (void)send:(NSString *)string;
 @end
 
-@interface MBInsomnia : NSObject
+typedef uint32_t IOPMAssertionID;
+
+@interface MBInsomnia : NSObject {
+    IOPMAssertionID assertionID;
+}
 - (void)toggle:(BOOL)on;
 @end
 
-@interface AppDelegate : NSObject <NSApplicationDelegate>
+@interface AppDelegate : NSObject <NSApplicationDelegate> {
+    NSStatusItem *statusItem;
+    NSMenu *menu;
+    NSMenuItem *artistMenuItem;
+    NSMenuItem *trackMenuItem;
+    NSMenuItem *spotifyStatusMenuItem;
+    NSMenuItem *separator;
+    NSMenuItem *pauseMenuItem;
+    NSThread *thread;
+
+    MBInsomnia *insomnia;
+    MBWebSocketClient *ws;
+
+    BOOL notNow;
+    BOOL waitingToQuit;
+    BOOL updateWaiting;
+    BOOL extracting;
+}
 @end
 
 #endif

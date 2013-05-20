@@ -9,9 +9,7 @@ static unsigned long long ntohll(unsigned long long v) {
 }
 
 
-@implementation MBWebSocketClient {
-    AsyncSocket *socket;
-}
+@implementation MBWebSocketClient
 
 - (id)init {
     socket = [[AsyncSocket alloc] initWithDelegate:self];
