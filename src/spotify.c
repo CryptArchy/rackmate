@@ -14,7 +14,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-extern void spcb_logged_in(sp_session *session, sp_error err);
 static int lua_spotify_stop(lua_State *L);
 
 #define E_LUA_PCALL(p1, p2, p3) \
@@ -23,13 +22,13 @@ static int lua_spotify_stop(lua_State *L);
         lua_pop(p1, 1); \
     }
 
-
 #define AL_NUM_BUFFERS 44    // Spotify gives us 2048 frames per callback, so
 ALCdevice *al_device = NULL; // this gives us ~2s audio at a 44100 sample rate
 ALuint al_source;
 ALuint al_buffers[AL_NUM_BUFFERS];
 
-
+char *sp_username = NULL;
+char *sp_password = NULL;
 
 #define HERR(fn) {sp_error sperr = (fn); if (sperr) fprintf(stderr, "%s\n", sp_error_message(sperr)); }
 
@@ -40,13 +39,12 @@ static int duration; // in frames
 static int position; // strictly, decoded position in frames
 static bool asked_for_next_track = false;
 static bool waiting_for_metadata = false;
-
+static lua_State *process_events_L;
 static int callback_next = 0;
 static int callback_ontrack = 0;
 static int callback_onexhaust = 0;
-static lua_State *process_events_L;
-
 static int callback_usability_status_change = 0;
+
 
 
 static void log(sp_session *session, const char *message) {
@@ -335,8 +333,6 @@ static int lua_spotify_spool(lua_State *L) {
     return 0;
 }
 
-extern char *sp_password;
-extern char *sp_username;
 static int lua_spotify_login(lua_State *L) {          assert(is_lua_thread());
     if (lua_gettop(L) >= 1) {
         lua_pushliteral(L, "onchange");

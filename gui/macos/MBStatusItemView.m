@@ -146,10 +146,6 @@ static MBStatusItemView *gself = nil;
     return NO;
 }
 
-
-char *sp_username = NULL;
-char *sp_password = NULL;
-void tellmate(const char *what);
 - (void)logIn {
     // we store the creds in variables so as to not transport the password over TCP in plain-text
     sp_username = strdup(user.stringValue.UTF8String);

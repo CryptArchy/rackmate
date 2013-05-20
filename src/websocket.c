@@ -8,6 +8,7 @@
 #include "lauxlib.h"
 #include <netdb.h>
 #include <netinet/in.h>
+#include "rackmate.h"
 #include <netinet/tcp.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -17,7 +18,6 @@
 #include <unistd.h>
 
 int sockfd;
-int lua_backtrace(lua_State *L);
 
 
 static void lua_push_clients(lua_State *L) {
@@ -245,7 +245,7 @@ size_t base64_size(size_t length) {
     return ((length / BINARY_UNIT_SIZE) + ((length % BINARY_UNIT_SIZE) ? 1 : 0)) * BASE64_UNIT_SIZE;
 }
 
-int base64(const char *inputBuffer, size_t length, char *outputBuffer, size_t outputBufferSize) {
+size_t base64(const char *inputBuffer, size_t length, char *outputBuffer, size_t outputBufferSize) {
     static unsigned char base64EncodeLookup[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     size_t i = 0;

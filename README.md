@@ -3,8 +3,15 @@ Rackmate
 A flexible content resolver, primarily meant for use with http://rackit.co
 but is also thoughtfully designed so perhaps useful for your applications too.
 
+
+Building Rackmate
+=================
+Type `make`, or `make macos`. You will get `rackmate` or `Rackmate.app`.
+Currently you cannot install the daemon nicely as the Lua is not able to be
+relocated. I will fix this soon, or submit a patch.
+
 keys.c
-======
+------
 Currently Rackmate won’t build without a Spotify key (this will be changed
 shortly as it isn’t strictly required). You can get yours at:
 
@@ -14,17 +21,34 @@ Paste the contents of the C-Code link into keys.c in the root directory of
 this distribution.
 
 Compile Errors
-==============
+--------------
 I *will* help you fix your compile errors. Report an issue at GitHub.
 
-Why Didn’t You Use lua-socket?
-==============================
-Lua-socket using coroutines was problematic with all our async-code that is
+
+Using Rackmate
+==============
+If you want to use Spotify with the daemon, you will need to run it initially
+like so:
+
+    ./rackmate --user foo
+
+Where foo is your username. Rackmate will then prompt you for your password.
+
+The GUI apps should be intuitive.
+
+
+FAQ
+===
+1) Why didn’t you use Luasocket?
+--------------------------------
+Luasocket using coroutines was problematic with all our async-code that is
 in and out of the C-layer. So in the end I just wrote our own socket layer.
+
 
 Author
 ======
 [Max Howell](https://twitter.com/mxcl), a splendid chap.
+
 
 License
 =======

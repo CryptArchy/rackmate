@@ -1,9 +1,9 @@
 #include <ctype.h>
 #include <errno.h>
-#include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
 #include <pthread.h>
+#include "rackmate.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,10 +14,6 @@
 #include <pwd.h>
 #include <unistd.h>
 #endif
-
-int luaopen_spotify(lua_State *L);
-int luaopen_websocket(lua_State *L);
-int luaopen_cjson(lua_State *L);
 
 
 //////////////////////////////////////////////////////////////////////// utils
@@ -159,10 +155,25 @@ pthread_t lua_thread = NULL;
 #else
     #define MAIN_LUA_PATH "src/main.lua"
 
+    void spcb_logged_in(sp_session *session, sp_error err) {
+        if (err != SP_ERROR_OK)
+            fprintf(stderr, "Log in failed: %s\n", sp_error_message(err));
+        else
+            fprintf(stderr, "Logged in\n");
+    }
+
     int main(int argc, char **argv) {
 #endif
     #ifndef NDEBUG
         lua_thread = pthread_self();
+    #else
+        if (argc > 2 && !strncmp(argv[1], "--user", 6)) {
+            fprintf(stderr, "Password: ");
+            char buf[128];
+            sp_password = strdup(gets(buf));
+            sp_username = strdup(argv[2]);
+            //FIXME won't logout and in as new user if already logged in
+        }
     #endif
 
         lua_State *L = lua_open();

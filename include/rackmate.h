@@ -1,9 +1,21 @@
 #ifndef _RACKMATE_H_
 #define _RACKMATE_H_
 
+#include "lua.h"
+#include "spotify.h"
+
+extern char *sp_username;
+extern char *sp_password;
+extern sp_session *session;
+
 extern size_t base64_size(size_t length);
 extern size_t base64(const char *inputBuffer, size_t inputBufferSize, char *outputBuffer, size_t outputBufferSize);
 extern const char *homepath();
+extern int lua_backtrace(lua_State *L);
+extern int luaopen_spotify(lua_State *L);
+extern int luaopen_websocket(lua_State *L);
+extern int luaopen_cjson(lua_State *L);
+extern void spcb_logged_in(sp_session *session, sp_error err);
 extern const char *syspath(int index);
 extern void tellmate(const char *what);
 
