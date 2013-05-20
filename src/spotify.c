@@ -274,6 +274,9 @@ static int lua_spotify_play(lua_State *L) {           assert(is_lua_thread());
         alSourceStop(al_source);
         alSourcei(al_source, AL_BUFFER, 0); // detach buffers
     }
+    if (loaded_track) sp_track_release(loaded_track);
+    if (prefetched_track) sp_track_release(prefetched_track);
+    prefetched_track = NULL;
 
     sp_link *link = sp_link_create_from_string(luaL_checkstring(L, 1));
     sp_track_add_ref(loaded_track = sp_link_as_track(link));
@@ -295,6 +298,8 @@ static int lua_spotify_pause(lua_State *L) {          assert(is_lua_thread());
 }
 
 static int lua_spotify_stop(lua_State *L) {           assert(is_lua_thread());
+    sp_session_player_play(session, false);
+    sp_session_player_unload(session);
     if (al_device) {
         alSourceStop(al_source);
         alSourcei(al_source, AL_BUFFER, 0); // detach buffers
@@ -302,7 +307,6 @@ static int lua_spotify_stop(lua_State *L) {           assert(is_lua_thread());
         alDeleteSources(1, &al_source);
         alcCloseDevice(al_device);
         al_device = NULL; }
-    sp_session_player_unload(session);
     if (loaded_track) sp_track_release(loaded_track);
     if (prefetched_track) sp_track_release(prefetched_track);
     prefetched_track = loaded_track = NULL;
@@ -381,8 +385,10 @@ static int lua_spotify_login(lua_State *L) {          assert(is_lua_thread());
 }
 
 static int lua_spotify_logout(lua_State *L) {         assert(is_lua_thread());
-    if (session)
+    if (session) {
+        lua_spotify_stop(L);
         sp_session_logout(session);
+    }
     return 0;
 }
 
