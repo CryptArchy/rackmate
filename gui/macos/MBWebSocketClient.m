@@ -14,7 +14,6 @@ static unsigned long long ntohll(unsigned long long v) {
 
 @implementation MBWebSocketClient {
     AsyncSocket *socket;
-    AsyncSocket *connection;
 }
 
 - (id)init {
@@ -134,24 +133,11 @@ static unsigned long long ntohll(unsigned long long v) {
     }
 }
 
-/**
- * In the event of an error, the socket is closed.
- * You may call "unreadData" during this call-back to get the last bit of data off the socket.
- * When connecting, this delegate method may be called
- * before"onSocket:didAcceptNewSocket:" or "onSocket:didConnectToHost:".
- **/
 - (void)onSocket:(AsyncSocket *)sock willDisconnectWithError:(NSError *)err {
     if (err.code != 61) // 61 is no socket to bind to that happens during startup
         NSLog(@"%@", err);
     if (sock == socket)
         [self performSelector:@selector(connect) withObject:nil afterDelay:1];
 }
-
-/**
- * Called when a socket disconnects with or without error.  If you want to release a socket after it disconnects,
- * do so here. It is not safe to do that during "onSocket:willDisconnectWithError:".
- **/
-- (void)onSocketDidDisconnect:(AsyncSocket *)sock
-{}
 
 @end
