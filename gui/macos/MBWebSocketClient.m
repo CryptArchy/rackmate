@@ -1,9 +1,6 @@
-#import "AppDelegate.h"
 #import "AsyncSocket.h"
+#import "rackmate.h"
 #import <Security/SecRandom.h>
-
-size_t base64_size(size_t length);
-size_t base64(const char *inputBuffer, size_t inputBufferSize, char *outputBuffer, size_t outputBufferSize);
 
 static unsigned long long ntohll(unsigned long long v) {
     union { unsigned long lv[2]; unsigned long long llv; } u;

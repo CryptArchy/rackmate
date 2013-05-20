@@ -1,5 +1,5 @@
 #import <IOKit/pwr_mgt/IOPMLib.h>
-#import "AppDelegate.h"
+#import "rackmate.h"
 
 @implementation MBInsomnia {
     IOPMAssertionID assertionID;

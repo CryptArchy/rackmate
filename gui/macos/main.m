@@ -1,9 +1,8 @@
-#import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
-#import "AppDelegate.h"
+#import <Foundation/Foundation.h>
+#import "JSONKit.h"
 #import "rackmate.h"
 #import "SPMediaKeyTap.h"
-#import "JSONKit.h"
 
 #define NEXT_RACKMATE "rackmate-macos-1.tar.bz2"
 #define NEXT_RACKMATE_DLPATH [NSString stringWithFormat:@"%s/%s/" NEXT_RACKMATE, homepath(), syspath(0)]

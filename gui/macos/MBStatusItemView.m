@@ -1,5 +1,5 @@
-#import "AppDelegate.h"
 #import <QuartzCore/CoreAnimation.h>
+#import "rackmate.h"
 #import "spotify.h"
 
 @interface MBStatusItemView () <NSTextFieldDelegate>
