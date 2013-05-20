@@ -48,7 +48,10 @@ static int callback_usability_status_change = 0;
 
 
 static void log(sp_session *session, const char *message) {
-    fputs(message, stderr);
+    // NOTE this is not the main thread, and in fact, the fputs was causing
+    // audio stutter. So for now, this is disabled.
+    //assert(!is_lua_thread());
+    //fputs(message, stderr);
 }
 
 static void ffs_go(lua_State *L) {                    assert(is_lua_thread());
@@ -139,7 +142,6 @@ static void notify_main_thread(sp_session *session) {
 }
 
 static void end_of_track(sp_session *session) {       assert(is_lua_thread());
-
     if (loaded_track)
         sp_track_release(loaded_track);
     if (prefetched_track) {
