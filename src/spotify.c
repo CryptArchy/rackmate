@@ -82,7 +82,7 @@ static void ffs_go(lua_State *L) {                    assert(is_lua_thread());
 }
 
 static void metadata_updated(sp_session *session) {   assert(is_lua_thread());
-    if (waiting_for_metadata) {
+    if (waiting_for_metadata && sp_track_error(loaded_track) == SP_ERROR_OK) {
         ffs_go(process_events_L);
         waiting_for_metadata = false;
     }
@@ -281,10 +281,13 @@ static int lua_spotify_play(lua_State *L) {           assert(is_lua_thread());
     sp_link *link = sp_link_create_from_string(luaL_checkstring(L, 1));
     sp_track_add_ref(loaded_track = sp_link_as_track(link));
     sp_link_release(link);
-    if (sp_track_error(loaded_track) == SP_ERROR_OK) {
+    sp_error err = sp_track_error(loaded_track);
+    if (err == SP_ERROR_OK) {
         ffs_go(L);
-    } else
+    } else if (err == SP_ERROR_IS_LOADING) {
         waiting_for_metadata = true;
+    } else
+        HERR(err);
     return 0;
 }
 
