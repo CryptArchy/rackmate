@@ -102,6 +102,13 @@ int main(int argc, const char **argv) {
                                         selector:@selector(checkForUpdates)
                                         userInfo:nil repeats:YES];
     [[NSRunLoop currentRunLoop] addTimer:timer forMode:NSDefaultRunLoopMode];
+
+//////////////////////////////////////////////////////////////////// LoginItem
+    // TODO shouldn't always add ourselves back :P
+    LSSharedFileListRef loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
+    id rackmate = [NSURL fileURLWithPath:[NSBundle mainBundle].bundlePath];
+    LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst, NULL, NULL, (CFURLRef)rackmate, NULL, NULL);
+    CFRelease(loginItems);
 }
 
 - (void)webSocketData:(NSData *)msg {
