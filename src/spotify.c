@@ -26,6 +26,7 @@ static int lua_spotify_stop(lua_State *L);
 ALCdevice *al_device = NULL; // this gives us ~2s audio at a 44100 sample rate
 ALuint al_source;
 ALuint al_buffers[AL_NUM_BUFFERS];
+ALCcontext *al_context;
 
 char *sp_username = NULL;
 char *sp_password = NULL;
@@ -56,15 +57,13 @@ static void log(sp_session *session, const char *message) {
 
 static void ffs_go(lua_State *L) {                    assert(is_lua_thread());
     if (!al_device) {
-        #define HHERR if (alGetError() != AL_NO_ERROR) fprintf(stderr, "Error starting :(\n");
-
-        al_device = alcOpenDevice(NULL); HHERR
-        ALCcontext *context = alcCreateContext(al_device, NULL); HHERR
-        alcMakeContextCurrent(context);           HHERR
-        alListenerf(AL_GAIN, 1.0f);               HHERR
-        alDistanceModel(AL_NONE);                 HHERR
-        alGenBuffers(AL_NUM_BUFFERS, al_buffers); HHERR
-        alGenSources(1, &al_source);              HHERR
+        al_device = alcOpenDevice(NULL);
+        al_context = alcCreateContext(al_device, NULL);
+        alcMakeContextCurrent(al_context);
+        alListenerf(AL_GAIN, 1.0f);
+        alDistanceModel(AL_NONE);
+        alGenBuffers(AL_NUM_BUFFERS, al_buffers);
+        alGenSources(1, &al_source);
     }
 
     asked_for_next_track = false;
@@ -308,6 +307,7 @@ static int lua_spotify_stop(lua_State *L) {           assert(is_lua_thread());
         alSourcei(al_source, AL_BUFFER, 0); // detach buffers
         alDeleteBuffers(AL_NUM_BUFFERS, al_buffers);
         alDeleteSources(1, &al_source);
+        alcDestroyContext(al_context);
         alcCloseDevice(al_device);
         al_device = NULL; }
     if (loaded_track) sp_track_release(loaded_track);
