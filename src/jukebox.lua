@@ -192,7 +192,9 @@ function play(data)
       end
       if params.index or params.subindex then
          state = "playing"
-         actual_play()
+         if not pcall(actual_play) then
+            stop()
+         end
       end
    end
 
