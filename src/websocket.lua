@@ -116,6 +116,7 @@ function connect(host, port, path)
 
    return {
       send = function(data)
+         data = JSON.encode(data)
          sock:write(c.frame_header(#data, 1, true)..c.mask(data))
       end,
       recv = function()
