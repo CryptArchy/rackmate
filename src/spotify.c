@@ -269,6 +269,8 @@ static int lua_spotify_play(lua_State *L) {           assert(is_lua_thread());
     foo(onexhaust);
     #undef foo
 
+    sp_session_player_play(session, false);
+    sp_session_player_unload(session);
     if (al_source) {
         alSourceStop(al_source);
         alSourcei(al_source, AL_BUFFER, 0); // detach buffers
