@@ -8,6 +8,7 @@
 #include "lauxlib.h"
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,8 +53,11 @@ static int lws_bind(lua_State *L) {
     }
     #ifdef __APPLE__
     // prevent SIGPIPE, other platforms support MSG_NOSIGNAL in send() flags
+    yes = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(int));
     #endif
+    yes = 1;
+    setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(int));
     fcntl(sockfd, F_SETFD, FD_CLOEXEC); // when we fork, don't be open in the child process
 
     struct sockaddr_in serv_addr = {
@@ -71,7 +75,7 @@ static int lws_bind(lua_State *L) {
 }
 
 static int lws_connect(lua_State* L) {
-    int sockfd;
+    int sockfd = 0;
     struct addrinfo hints = {
         .ai_family = AF_INET,
         .ai_socktype = SOCK_STREAM
@@ -92,6 +96,10 @@ static int lws_connect(lua_State* L) {
         }
         break;
     }
+    if (sockfd <= 0)
+        return luaL_error(L, "connect: %s", strerror(errno));
+    int flag = 1;
+    setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
     lua_push_sock(L, sockfd);
     return 1;
 }
