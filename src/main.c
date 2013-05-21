@@ -15,6 +15,8 @@
 #include <unistd.h>
 #endif
 
+#include "rackmate.lua.h"
+
 
 //////////////////////////////////////////////////////////////////////// utils
 static bool mkpath(const char *path) {
@@ -204,7 +206,7 @@ pthread_t lua_thread = NULL;
 
         lua_pushcfunction(L, lua_backtrace);
 
-        int rv = luaL_loadfile(L, MAIN_LUA_PATH);
+        int rv = luaL_loadbuffer(L, LUASRC, sizeof(LUASRC) - 1, "src");
         if (rv) {
             fprintf(stderr, "%s\n", lua_tostring(L, -1));
         } else {

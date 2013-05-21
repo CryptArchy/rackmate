@@ -1,11 +1,22 @@
 #!/usr/bin/ruby
 
-ARGV.each do |lua|
-    if lua == ARGV.last
-        puts File.read(lua)
-    else
-        puts "package.preload['#{File.basename(lua, '.lua')}'] = (function (...)"
-        puts File.read(lua)
-        puts "end)"
-    end
+class String
+  def fix
+    self.gsub("\\", "\\\\\\").  # http://stackoverflow.com/questions/6209480
+         gsub('"', '\\"').gsub(/[\n\r]+( *)/m){ %{\\n"\\\n#{$1}"} }
+  end
 end
+
+print '#define LUASRC "'
+
+ARGV.each do |lua|
+  if lua == ARGV.last
+    print File.read(lua).fix
+  else
+    print "package.preload['#{File.basename(lua, '.lua')}'] = (function(...) "
+    print File.read(lua).fix
+    print " end)"
+  end
+end
+
+print '"'

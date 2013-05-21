@@ -6,9 +6,29 @@ but is also thoughtfully designed so perhaps useful for your applications too.
 
 Building Rackmate
 =================
-Type `make`, or `make macos`. You will get `rackmate` or `Rackmate.app`.
-Currently you cannot install the daemon nicely as the Lua is not able to be
-relocated. I will fix this soon, or submit a patch.
+You need Ruby, GNU Make and a CC toolchain. Here are your options:
+
+    make
+
+This defaults to building the Rackmate daemon with the included Lua. If you
+DON’T want this:
+
+    make STANDALONE=0
+
+But you need to make sure libspotify and lua are installed. If they are not
+installed to `/usr` or `/usr/local` then you must make the relevant paths
+available in your `LDFLAGS` and `CPPFLAGS`. We do not offer help with this
+step.
+
+If you want to build the Mac or Windows GUI:
+
+    make gui
+
+*You cannot build the Mac or Windows GUIs `STANDALONE=0`.*
+
+GUIs for other platforms welcome as patches. We will build GUIs for KDE and
+Gnome eventually, but it’s simple to do, so feel free to submit them as pull
+requests.
 
 keys.c
 ------
