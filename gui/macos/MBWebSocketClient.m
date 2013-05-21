@@ -28,6 +28,7 @@ static unsigned long long ntohll(unsigned long long v) {
     char *header = data.mutableBytes;
     header[0] = 0x81;
     if (o.length > 65535) {
+    #ifdef __LP64__
         header[1] = 127;
         header[2] = (o.length >> 56) & 255;
         header[3] = (o.length >> 48) & 255;
@@ -37,6 +38,17 @@ static unsigned long long ntohll(unsigned long long v) {
         header[7] = (o.length >> 16) & 255;
         header[8] = (o.length >>  8) & 255;
         header[9] = o.length & 255;
+    #else
+        header[1] = 127;
+        header[2] = 0; //FIXME
+        header[3] = 0;
+        header[4] = 0;
+        header[5] = 0;
+        header[6] = (o.length >> 24) & 255;
+        header[7] = (o.length >> 16) & 255;
+        header[8] = (o.length >>  8) & 255;
+        header[9] = o.length & 255;
+    #endif
     } else if (o.length > 125) {
         header[1] = 126;
         header[2] = (o.length >> 8) & 255;
