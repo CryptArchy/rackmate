@@ -66,7 +66,6 @@ function queue(data)
    if not data.tracks then -- tape is a single
       data.tracks = {table.copy(data)} end
    table.insert(tapes, Tape.new(data))
-   save()
    resolver.resolve(data, function()
       save() --TODO excessive as happens every track
    end)
@@ -76,8 +75,21 @@ end
 
 local function actual_play()
    resolver.resolve(np(), function(track, url)
+      if (url == "unresolved") then
+         subindex = subindex + 1
+         if subindex > #tapes[index].tracks then
+            index = index + 1
+            subindex = 1
+         end
+         if index > #tapes then
+            return stop()
+         end
+         return actual_play()
+      end
+
       spotify.play(url, {
          next = function()
+            --TODO make it a callback to return so we can resolve if necessary
             return (next_resolvable_track() or {}).partnerID
          end,
          onexhaust = function()
@@ -88,6 +100,7 @@ local function actual_play()
          end,
          ontrack = function(url)
             sync_if_changes(function()
+               --TODO we must pass track objects into Spotify as this lookup will fail in tapes with dupe tracks!
                index, subindex = (function()
                   for ii, tape in ipairs(tapes) do
                      local jj = _.indexOf(tape.tracks, function(track)
