@@ -42,7 +42,6 @@ src/main.c: .make/include/rackmate.lua.h
 ########################################################################## etc
 .PHONY: dist-clean clean test gui daemon
 .DELETE_ON_ERROR:
-.DEFAULT_GOAL := daemon
 
 clean:
 	rm -rf .make/o Rackmate.app rackmate .make/include/rackmate.lua.h

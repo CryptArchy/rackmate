@@ -8,22 +8,28 @@ else
   endif
 endif
 
-ifdef MAKECMDGOALS
-  GOAL := $(firstword $(MAKECMDGOALS))
-else
-  GOAL = daemon
-endif
-
 
 ifdef RELEASE
-  # RELEASE is for Rackit Ltd. not for you, you can specify your own CFLAGS
-  # (eg. $ export CFLAGS='-O3 -march=native') and this Makefile will use them
+  ifeq ($(OS),POSIX)
+    $(error RELEASE is for Rackit Ltd. If you want to optimize the build specify \
+            your own CFLAGS at the TTY and they will override those in this \
+            Makefile. eg: CFLAGS='-O3 -march=native' make)
+  endif
   CFLAGS = -Oz -g
   ifeq ($(OS),MacOS)
     CFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
     LDFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
   endif
   OUTDIR = .make/o/$(OS)-release
+  .DEFAULT_GOAL = gui
+  GOAL = gui
+else
+  .DEFAULT_GOAL = daemon
+  ifdef MAKECMDGOALS
+    GOAL := $(firstword $(MAKECMDGOALS))
+  else
+    GOAL = daemon
+  endif
 endif
 
 
