@@ -1,4 +1,5 @@
 /rackmate
+/rackmate.exe
 /Rackmate.app
 /.make
 !/.make/conf.c

@@ -1,11 +1,19 @@
 ifeq ($(OS),Windows_NT)
   OS = WinNT
+  MKDIR = .make\bin\mkdir
+  RM = .make\bin\rm
+  # We are targeting XP and above, if we don't set this we don't get access to some functions
+  CPPFLAGS += -DWINVER=0x0501 -D_WIN32_WINNT=0x0501
+  LDFLAGS += -ladvapi32 -lws2_32
+daemon: rackmate.exe
 else
+  MKDIR = mkdir
   ifeq ($(shell uname),Darwin)
     OS = MacOS
   else
     OS = POSIX
   endif
+daemon: rackmate
 endif
 
 
@@ -16,6 +24,7 @@ ifdef RELEASE
             Makefile. eg: CFLAGS='-O3 -march=native' make)
   endif
   CFLAGS = -Oz -g
+  CPPFLAGS += -DNDEBUG
   ifeq ($(OS),MacOS)
     CFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
     LDFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
@@ -24,11 +33,14 @@ ifdef RELEASE
   .DEFAULT_GOAL = gui
   GOAL = gui
 else
-  .DEFAULT_GOAL = daemon
+  .DEFAULT_GOAL := daemon
   ifdef MAKECMDGOALS
     GOAL := $(firstword $(MAKECMDGOALS))
   else
     GOAL = daemon
+  endif
+  ifeq ($(OS),MacOS)
+    LDFLAGS += -rpath lib
   endif
 endif
 
@@ -62,7 +74,7 @@ ifeq ($(GOAL),gui)
     LDFLAGS += -framework Security  # MBWebSocketClient
     CFLAGS += -fno-objc-arc  # support back to OS X 10.4
     CFLAGS += -Wno-deprecated-objc-isa-usage  # JSONKit
-    LDFLAGS += -lopenal #[1]
+    LDFLAGS += -lopenal  #[1]
   endif
 endif
 
@@ -83,7 +95,6 @@ ifeq ($(GOAL),daemon)
       LDFLAGS += -lopenal
     endif
   endif
-
 endif
 
 

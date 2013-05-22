@@ -2,7 +2,6 @@
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
-#include <pthread.h>
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
 #include "rackmate.h"
@@ -48,13 +47,6 @@ static int callback_usability_status_change = 0;
 
 
 
-static void log(sp_session *session, const char *message) {
-    // NOTE this is not the main thread, and in fact, the fputs was causing
-    // audio stutter. So for now, this is disabled.
-    //assert(!is_lua_thread());
-    //fputs(message, stderr);
-}
-
 static void ffs_go(lua_State *L) {                    assert(is_lua_thread());
     if (!al_device) {
         al_device = alcOpenDevice(NULL);
@@ -81,14 +73,14 @@ static void ffs_go(lua_State *L) {                    assert(is_lua_thread());
     E_LUA_PCALL(L, 1, 0);
 }
 
-static void metadata_updated(sp_session *session) {   assert(is_lua_thread());
+SP_CALLCONV static void metadata_updated(sp_session *session) {   assert(is_lua_thread());
     if (waiting_for_metadata && sp_track_error(loaded_track) == SP_ERROR_OK) {
         ffs_go(process_events_L);
         waiting_for_metadata = false;
     }
 }
 
-static int music_delivery(sp_session *sess, const sp_audioformat *format, const void *frames, int num_frames) {
+SP_CALLCONV static int music_delivery(sp_session *sess, const sp_audioformat *format, const void *frames, int num_frames) {
     assert(!is_lua_thread());
 
     if (num_frames == 0)
@@ -132,15 +124,15 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format, const 
     return num_frames;
 }
 
-static void sp_error_occurred(sp_session *session, sp_error error) {
+SP_CALLCONV static void sp_error_occurred(sp_session *session, sp_error error) {
     HERR(error);
 }
 
-static void notify_main_thread(sp_session *session) {
+SP_CALLCONV static void notify_main_thread(sp_session *session) {
     tellmate("ctc:spotify.process_events()");
 }
 
-static void end_of_track(sp_session *session) {       assert(is_lua_thread());
+SP_CALLCONV static void end_of_track(sp_session *session) {       assert(is_lua_thread());
     if (loaded_track)
         sp_track_release(loaded_track);
     if (prefetched_track) {
@@ -172,7 +164,7 @@ static const char *getstate() {
     }
 }
 
-static void connectionstate_updated(sp_session *sess) {
+SP_CALLCONV static void connectionstate_updated(sp_session *sess) {
     assert(is_lua_thread());
 
     lua_State *L = process_events_L;
@@ -184,10 +176,10 @@ static void connectionstate_updated(sp_session *sess) {
 }
 
 sp_session_callbacks session_callbacks = {
-    .notify_main_thread = notify_main_thread,
+    .notify_main_thread = &notify_main_thread,
     .connectionstate_updated = &connectionstate_updated,
 
-    .logged_in = spcb_logged_in,
+    .logged_in = &spcb_logged_in,
 
     .play_token_lost = NULL,
 
@@ -198,9 +190,6 @@ sp_session_callbacks session_callbacks = {
     .stop_playback = NULL,
     .end_of_track = &end_of_track,
 
-    .message_to_user = &log,
-    .log_message = &log,
-
     .streaming_error = &sp_error_occurred,
     .offline_error = &sp_error_occurred,
     .scrobble_error = &sp_error_occurred,
@@ -208,7 +197,7 @@ sp_session_callbacks session_callbacks = {
 };
 
 
-static void search_complete(sp_search *search, void *userdata) {
+SP_CALLCONV static void search_complete(sp_search *search, void *userdata) {
     assert(is_lua_thread());
 
     lua_State *L = process_events_L;

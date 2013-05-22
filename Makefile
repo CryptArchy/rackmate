@@ -5,12 +5,13 @@ endif
 include .make/conf.mk
 
 OBJS := $(filter %.o, $(patsubst %.c, $(OUTDIR)/%.o, $(SRCS)) $(patsubst %.m, $(OUTDIR)/%.o, $(SRCS)))
-LUA := $(wildcard include/*.lua) $(filter-out src/main.lua, $(wildcard src/*.lua)) src/main.lua
+LUAS := $(wildcard include/*.lua) $(filter-out src/main.lua, $(wildcard src/*.lua)) src/main.lua
+RUBY = ruby
 
 
 ###################################################################### targets
-daemon: $(OBJS)
-	$(CC) $(LDFLAGS) -rpath lib $^ -o rackmate
+rackmate rackmate.exe: $(OBJS)
+	$(CC) $^ $(LDFLAGS) -o $@
 
 ifeq ($(OS),MacOS)
 gui: Rackmate.app/Contents/MacOS/Rackmate \
@@ -35,18 +36,18 @@ Rackmate.app/Contents/Resources/%.png: gui/macos/%.png | Rackmate.app/Contents/R
 
 src/main.c: .make/include/rackmate.lua.h
 
-.make/include/rackmate.lua.h: $(LUA) .make/$(UNDERSCORE_SHA) .make/squish | .make/include
-	.make/squish $(LUA) > $@
+.make/include/rackmate.lua.h: $(LUAS) .make/$(UNDERSCORE_SHA) .make/squish | .make/include
+	$(RUBY) .make/squish $(LUAS) > $@
 
 
 ########################################################################## etc
-.PHONY: dist-clean clean test gui daemon
+.PHONY: dist-clean clean test gui
 .DELETE_ON_ERROR:
 
 clean:
-	rm -rf .make/o Rackmate.app rackmate .make/include/rackmate.lua.h
-dist-clean:
-	rm -rf .make/o .make/$(UNDERSCORE_SHA) .make/include vendor/SPMediaKeyTap vendor/JSONKit Rackmate.app rackmate
+	$(RM) -rf .make/o Rackmate.app rackmate.exe rackmate .make/include/rackmate.lua.h
+dist-clean: clean
+	$(RM) -rf .make/$(UNDERSCORE_SHA) .make/include vendor/SPMediaKeyTap vendor/JSONKit
 test:
 	@busted -m 'src/?.lua;include/?.lua' spec
 
@@ -62,7 +63,7 @@ $(OUTDIR)/%.o: %.c
 DIRS := $(sort $(dir $(OBJS))) .make/include .make/include/rackit Rackmate.app/Contents Rackmate.app/Contents/MacOS Rackmate.app/Contents/Resources
 define mkdir
 $(1):
-	mkdir -p $(1)
+	$(MKDIR) -p $(1)
 endef
 $(foreach o, $(OBJS), $(eval $(o): | $(dir $(o))))
 $(foreach d, $(DIRS), $(eval $(call mkdir, $(d))))

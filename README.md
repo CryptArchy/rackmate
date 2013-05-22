@@ -30,6 +30,9 @@ GUIs for other platforms welcome as patches. We will build GUIs for KDE and
 Gnome eventually, but it’s simple to do, so feel free to submit them as pull
 requests.
 
+Building for Windows has been tested with *MingW* only. It most likely will
+not compile with Visual Studio due to our use of C99.
+
 keys.c
 ------
 Currently Rackmate won’t build without a Spotify key (this will be changed

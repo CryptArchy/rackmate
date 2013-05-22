@@ -2,7 +2,6 @@
 #include <errno.h>
 #include "lualib.h"
 #include "lauxlib.h"
-#include <pthread.h>
 #include "rackmate.h"
 #include <stdbool.h>
 #include <stdlib.h>
@@ -13,6 +12,15 @@
 #ifndef _WIN32
 #include <pwd.h>
 #include <unistd.h>
+#else
+#include <direct.h>
+#include <shlobj.h>
+#include <wchar.h>
+#define mkdir(x, y) _mkdir(x)
+#endif
+
+#if __STRICT_ANSI__ && __GNUC__
+#define strdup(x) strcpy(malloc(strlen(x) + 1), x)
 #endif
 
 #include "rackmate.lua.h"
@@ -34,10 +42,8 @@ static bool mkpath(const char *path) {
     return mkdir(opath, S_IRWXU) == 0;
 }
 
+#ifndef _WIN32
 const char *homepath() {
-#ifdef _WIN32
-    #error unimplemented
-#else
     const char *d = getenv("HOME");
     if (d)
         return d;
@@ -45,7 +51,6 @@ const char *homepath() {
     if (pwd)
        return pwd->pw_dir;
    return getenv("TMP") ?: "/tmp";
-#endif
 }
 
 const char *syspath(int key) {
@@ -54,8 +59,6 @@ const char *syspath(int key) {
         case 0:  return "Library/Caches/co.rackit.mate";
         case 1:  return "Library/Preferences/co.rackit.mate";
         default: return "Library/Application Support/Rackmate"; //yes, typically not reverse URL here
-    #elif _WIN32
-    #error unimplemented
     #else
         case 0:  return ".cache/rackmate";
         case 1:  return ".config/rackmate";
@@ -63,31 +66,7 @@ const char *syspath(int key) {
     #endif
     }
 }
-
-
-///////////////////////////////////////////////////////////////////// tellmate
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-
-void tellmate(const char *what) {
-    struct sockaddr_in serv_addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(13581),
-        .sin_addr = { .s_addr = inet_addr("127.0.0.1") }
-    };
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    int rv = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-    if (rv == -1)
-        return perror("ctc:connect");
-    rv = write(sockfd, what, strlen(what));
-    if (rv == -1)
-        perror("ctc:write");
-    else {
-        if (rv != strlen(what)) fprintf(stderr, "Didn't send everything!\n");
-        close(sockfd);
-    }
-}
+#endif
 
 
 //////////////////////////////////////////////////////////////////// lua utils
@@ -114,10 +93,12 @@ int lua_backtrace(lua_State *L) {
     return 1;
 }
 
+#ifndef _WIN32
 static int lua_xp_homedir(lua_State *L) {
     lua_pushstring(L, homepath());
     return 1;
 }
+#endif
 
 static int lua_xp_mkpath(lua_State *L) {
     const char *path = lua_tostring(L, 1);
@@ -131,10 +112,27 @@ static int lua_xp_mkpath(lua_State *L) {
 }
 
 static int lua_xp_sysdir(lua_State *L) {
+#ifndef _WIN32
+    lua_pushstring(L, homepath());
+    lua_pushstring(L, "/");
     lua_pushstring(L, syspath(lua_tonumber(L, 1)));
+    lua_concat(L, 3);
+#else
+    // we get the short path as it is always ASCII and Lua is no good with UTF16
+    wchar_t longpath[MAX_PATH];
+    SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, longpath);
+    wchar_t shortpath[1024];
+    GetShortPathNameW(longpath, shortpath, sizeof(shortpath));
+    size_t n = wcslen(shortpath);
+    char ascii[n];
+    for (int x = 0; x < n; ++x)
+        ascii[x] = shortpath[x*2];
+    lua_pushlstring(L, ascii, n);
+#endif
     return 1;
 }
 
+#ifndef _WIN32
 static int lua_xp_fork(lua_State *L) {
     lua_pushinteger(L, fork());
     return 1;
@@ -144,6 +142,7 @@ static int lua_xp__exit(lua_State *L) {
     _exit(lua_tonumber(L, 1));
     return 0; // never happens
 }
+#endif
 
 static int lua_string_trim(lua_State *L) {
     size_t size;
@@ -157,7 +156,7 @@ static int lua_string_trim(lua_State *L) {
 
 
 ///////////////////////////////////////////////////////////////////////// main
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(_WIN32)
 pthread_t lua_thread = NULL;
 #endif
 
@@ -166,7 +165,7 @@ pthread_t lua_thread = NULL;
 #else
     #define MAIN_LUA_PATH "src/main.lua"
 
-    void spcb_logged_in(sp_session *session, sp_error err) {
+    SP_CALLCONV void spcb_logged_in(sp_session *session, sp_error err) {
         if (err != SP_ERROR_OK)
             fprintf(stderr, "Log in failed: %s\n", sp_error_message(err));
         else
@@ -175,7 +174,7 @@ pthread_t lua_thread = NULL;
 
     int main(int argc, char **argv) {
 #endif
-    #ifndef NDEBUG
+    #if !defined(NDEBUG) && !defined(_WIN32)
         lua_thread = pthread_self();
     #endif
     #ifndef RACKMATE_GUI
@@ -197,11 +196,13 @@ pthread_t lua_thread = NULL;
         });
 
         luaL_register(L, LUA_OSLIBNAME, (luaL_reg[]){
+          #ifndef _WIN32
             { "homedir", lua_xp_homedir },
-            { "mkpath", lua_xp_mkpath },
-            { "sysdir", lua_xp_sysdir },
             { "fork", lua_xp_fork },
             { "_exit", lua_xp__exit },
+          #endif
+            { "mkpath", lua_xp_mkpath },
+            { "sysdir", lua_xp_sysdir },
             {NULL,  NULL}
         });
 

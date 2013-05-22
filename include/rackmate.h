@@ -15,16 +15,16 @@ extern int lua_backtrace(lua_State *L);
 extern int luaopen_spotify(lua_State *L);
 extern int luaopen_websocket(lua_State *L);
 extern int luaopen_cjson(lua_State *L);
-extern void spcb_logged_in(sp_session *session, sp_error err);
+SP_CALLCONV extern void spcb_logged_in(sp_session *session, sp_error err);
 extern const char *syspath(int index);
 extern void tellmate(const char *what);
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(_WIN32)
 #include <pthread.h>
 extern pthread_t lua_thread;
 #define is_lua_thread() (pthread_self() == lua_thread)
 #else
-#define is_lua_thread() (void)
+#define is_lua_thread() 1
 #endif
 
 #ifdef RACKMATE_GUI

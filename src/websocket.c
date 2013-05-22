@@ -1,20 +1,34 @@
-#include <arpa/inet.h>
-#include <CommonCrypto/CommonDigest.h>
 #include <errno.h>
 #include <fcntl.h>
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
-#include <netdb.h>
-#include <netinet/in.h>
 #include "rackmate.h"
-#include <netinet/tcp.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <wincrypt.h>
+#else
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <unistd.h>
+#endif
+
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#endif
+
+#if __APPLE__ || _WIN32
+#define MSG_NOSIGNAL 0
+#endif
 
 int sockfd;
 
@@ -41,12 +55,38 @@ static void lua_push_sock(lua_State *L, int fd) {
     lua_settable(L, -3);
 }
 
+
+#ifdef _WIN32
+#define setsockopt(a,b,c,d,e) setsockopt(a,b,c, (char*)d, e)
+#define fcntl(...)
+static int luaL_sockerror(lua_State *L, const char *prefix) {
+    wchar_t *utf16 = NULL;
+    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                   NULL, WSAGetLastError(),
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   (wchar_t *)&utf16, 0, NULL);
+    if (L) {
+        int n = WideCharToMultiByte(CP_UTF8, 0, utf16, -1, NULL, 0, NULL, NULL);
+        CHAR utf8err[n];
+        WideCharToMultiByte(CP_UTF8, 0, utf16, -1, utf8err, n, NULL, NULL);
+        luaL_error(L, "%s: %s", prefix, utf8err);
+    } else
+        fprintf(stderr, "%s: %S", prefix, utf16);
+    LocalFree(utf16);
+    return 0;
+}
+#define perror(prefix) ((void)luaL_sockerror(NULL, prefix))
+#else
+#define luaL_sockerror(L, prefix) luaL_error(L, prefix ": %s", strerror(errno))
+#endif
+
+
 static int lws_bind(lua_State *L) {
     sockfd = socket(PF_INET, SOCK_STREAM, 0);
 
     // lose the pesky "Address already in use" error message
     int yes = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         lua_pushliteral(L, "setsockopt");
         return lua_error(L);
     }
@@ -95,6 +135,8 @@ static int lws_connect(lua_State* L) {
         }
         break;
     }
+    freeaddrinfo(servinfo);
+
     if (sockfd <= 0)
         return luaL_error(L, "connect: %s", strerror(errno));
     int flag = 1;
@@ -222,14 +264,26 @@ static int lws_htonl(lua_State *L) {
 
 static int lws_sha1(lua_State *L) {
     size_t n;
-    const char *rawinput = lua_tolstring(L, 1, &n);
-#ifdef __APPLE__
-    unsigned char input[CC_SHA1_DIGEST_LENGTH];
-    CC_SHA1(rawinput, n, input);
+    const char *input = lua_tolstring(L, 1, &n);
+    unsigned char output[20];
+#if __APPLE__
+    CC_SHA1(input, n, output);
+#elif _WIN32
+    DWORD dwStatus = 0;
+    BOOL bResult = FALSE;
+    HCRYPTPROV hProv = 0;
+    HCRYPTHASH hHash = 0;
+    DWORD cbHashSize = 0;
+
+    CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
+    CryptCreateHash(hProv, CALG_SHA1, 0, 0, &hHash);
+    CryptHashData(hHash, (BYTE *)input, n, 0);
+    DWORD outn = sizeof(output);
+    CryptGetHashParam(hHash, HP_HASHVAL, (BYTE *)output, &outn, 0);
 #else
-    #error need code for platform's sha1
+    #error need code for platform SHA1
 #endif
-    lua_pushlstring(L, (const char *)input, CC_SHA1_DIGEST_LENGTH);
+    lua_pushlstring(L, (const char *)output, sizeof(output));
     return 1;
 }
 
@@ -369,10 +423,6 @@ static int lws_sock_read(lua_State *L) {
 }
 
 static int lws_sock_write(lua_State *L) {
-    #ifdef __APPLE__
-    #define MSG_NOSIGNAL 0
-    #endif
-
     const int fd = lua_tosockfd(L, 1);
     size_t n;
     const char *payload = lua_tolstring(L, 2, &n);
@@ -428,4 +478,26 @@ int luaopen_websocket(lua_State *L) {
     lua_setglobal(L, "WebSocketClient");
 
     return 1;
+}
+
+
+
+///////////////////////////////////////////////////////////////////// tellmate
+void tellmate(const char *what) {
+    struct sockaddr_in serv_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(13581),
+        .sin_addr = { .s_addr = inet_addr("127.0.0.1") }
+    };
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int rv = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    if (rv == -1)
+        return perror("ctc:connect");
+    rv = send(sockfd, what, strlen(what), MSG_NOSIGNAL);
+    if (rv == -1)
+        perror("ctc:write");
+    else {
+        if (rv != strlen(what)) fprintf(stderr, "Didn't send everything!\n");
+        close(sockfd);
+    }
 }
