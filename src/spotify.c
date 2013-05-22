@@ -280,6 +280,7 @@ static int lua_spotify_play(lua_State *L) {           assert(is_lua_thread());
     prefetched_track = NULL;
 
     sp_link *link = sp_link_create_from_string(luaL_checkstring(L, 1));
+    if (!link) return luaL_error(L, "Invalid link");
     sp_track_add_ref(loaded_track = sp_link_as_track(link));
     sp_link_release(link);
     sp_error err = sp_track_error(loaded_track);
