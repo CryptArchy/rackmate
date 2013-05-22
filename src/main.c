@@ -94,13 +94,22 @@ void tellmate(const char *what) {
 int lua_backtrace(lua_State *L) {
     size_t n;
     const char *s = lua_tolstring(L, 1, &n);
-    if (strncmp(s + n - 3, ":OK", 3)) {
-        lua_getfield(L, LUA_GLOBALSINDEX, "debug");
-        lua_getfield(L, -1, "traceback");
-        lua_pushvalue(L, 1);    // pass error message
-        lua_pushinteger(L, 2);  // skip this function and traceback
-        lua_call(L, 2, 1);      // call debug.traceback
-    }
+
+    // If we preface the error by OK it means it is a non-serious error that
+    // doesn't need a backtrace, we use this when trying to read a closed
+    // websocket connection, yeah don't use exceptions for flow-control, but…
+    for (int x = 0, y = 0; x < n; ++x)
+        if (s[x] == ':' && ++y == 3 && strncmp(s + x - 2, "OK", 2) == 0) {
+            x++;
+            fprintf(stderr, "%.*s\n", (int)n - x, s + x);
+            return 0;
+        }
+
+    lua_getfield(L, LUA_GLOBALSINDEX, "debug");
+    lua_getfield(L, -1, "traceback");
+    lua_pushvalue(L, 1);    // pass error message
+    lua_pushinteger(L, 2);  // skip this function and traceback
+    lua_call(L, 2, 1);      // call debug.traceback
     fprintf(stderr, "%s\n", lua_tostring(L, -1));
     return 1;
 }

@@ -358,7 +358,7 @@ static int lws_sock_read(lua_State *L) {
         rn += rv;
         if (rv == 0 && N != 0) {
             lws_sock_close(L);
-            return luaL_error(L, "Socket closed: %d:OK", sockfd);
+            return luaL_error(L, "OK:Socket closed: %d", sockfd);
         } else if (rv == -1) {
             return luaL_error(L, "recv: %s", strerror(errno));
         } else if (lua_gettop(L) < 2)
