@@ -33,18 +33,10 @@ Rackmate.app/Contents/Info.plist: gui/macos/Info.plist | Rackmate.app/Contents
 Rackmate.app/Contents/Resources/%.png: gui/macos/%.png | Rackmate.app/Contents/Resources
 	cp $< $@
 
-$(OBJS): .make/include/rackit/conf.h
 src/main.c: .make/include/rackmate.lua.h
 
 .make/include/rackmate.lua.h: $(LUA) .make/$(UNDERSCORE_SHA) .make/squish | .make/include
 	.make/squish $(LUA) > $@
-
-
-#################################################################### configure
-.make/conf: .make/conf.c
-	$(CC) $(CPPFLAGS) $< -o $@
-.make/include/rackit/conf.h: .make/conf include/luaconf.h | .make/include/rackit
-	$< > $@
 
 
 ########################################################################## etc
@@ -53,9 +45,9 @@ src/main.c: .make/include/rackmate.lua.h
 .DEFAULT_GOAL := daemon
 
 clean:
-	rm -rf .make/o .make/oo Rackmate.app rackmate .make/include/rackmate.lua.h
+	rm -rf .make/o Rackmate.app rackmate .make/include/rackmate.lua.h
 dist-clean:
-	rm -rf .make/o .make/oo .make/$(UNDERSCORE_SHA) .make/include .make/vendor/underscore vendor/SPMediaKeyTap vendor/JSONKit Rackmate.app rackmate
+	rm -rf .make/o .make/$(UNDERSCORE_SHA) .make/include vendor/SPMediaKeyTap vendor/JSONKit Rackmate.app rackmate
 test:
 	@busted -m 'src/?.lua;include/?.lua' spec
 
