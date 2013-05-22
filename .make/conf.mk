@@ -1,4 +1,6 @@
-ifneq ($(OS),Windows_NT)
+ifeq ($(OS),Windows_NT)
+  OS = WinNT
+else
   ifeq ($(shell uname),Darwin)
     OS = MacOS
   else
@@ -21,11 +23,12 @@ ifdef RELEASE
     CFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
     LDFLAGS += -mmacosx-version-min=10.5 -arch i386 -arch x86_64
   endif
-else
-  CFLAGS ?= -Os -g
+  OUTDIR = .make/o/$(OS)-release
 endif
 
 
+OUTDIR ?= .make/o/$(OS)-$(GOAL)
+CFLAGS ?= -Os -g
 CPPFLAGS += -Iinclude -I.make/include
 LDFLAGS += -lspotify
 CFLAGS += -std=c99
@@ -75,13 +78,6 @@ ifeq ($(GOAL),daemon)
     endif
   endif
 
-endif
-
-
-ifndef RELEASE
-  OUTDIR := .make/o/$(GOAL)
-else
-  OUTDIR := .make/oo/$(GOAL)
 endif
 
 
