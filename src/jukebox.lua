@@ -123,7 +123,6 @@ function remove(rmindex)
    elseif tape then                  -- there was a current index
       index = _.indexOf(tapes, tape) -- update index if necessary
    end
-   save()
 end
 
 function move(data)
@@ -162,6 +161,8 @@ function sync_if_changes(callback)
    local newstate = getstate()
    if not _.isEqual(oldstate, newstate) then
       require'websocket'.broadcast(newstate)
+      if not _.isEqual(oldstate.tapes, newstate.tapes) then
+         save() end
    end
 end
 
