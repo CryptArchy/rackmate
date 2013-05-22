@@ -49,9 +49,11 @@ end
 
 local function save()
    if os.fork() == 0 then
-      local f = io.open(TAPES_JSON_PATH, "w")
-      f:write(JSON.encode(tapes))
-      f:close()
+      pcall(function()
+         local f = io.open(TAPES_JSON_PATH, "w")
+         f:write(JSON.encode(tapes))
+         f:close()
+      end)
       os._exit()
    end
 end
