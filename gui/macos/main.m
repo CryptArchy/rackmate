@@ -160,7 +160,7 @@ int main(int argc, const char **argv) {
     char path[[nspath lengthOfBytesUsingEncoding:NSUTF8StringEncoding]];
     strcpy(path, [nspath UTF8String]);
     [pool release];
-    lua_thread_loop(path);
+    lua_thread_loop();
     if (waitingToQuit)
         [NSApp terminate:self];
     else

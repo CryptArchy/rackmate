@@ -161,10 +161,8 @@ pthread_t lua_thread = NULL;
 #endif
 
 #ifdef RACKMATE_GUI
-    int lua_thread_loop(const char *MAIN_LUA_PATH) {
+    int lua_thread_loop() {
 #else
-    #define MAIN_LUA_PATH "src/main.lua"
-
     SP_CALLCONV void spcb_logged_in(sp_session *session, sp_error err) {
         if (err != SP_ERROR_OK)
             fprintf(stderr, "Log in failed: %s\n", sp_error_message(err));
