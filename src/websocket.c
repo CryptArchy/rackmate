@@ -86,10 +86,7 @@ static int lws_bind(lua_State *L) {
 
     // lose the pesky "Address already in use" error message
     int yes = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
-        lua_pushliteral(L, "setsockopt");
-        return lua_error(L);
-    }
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
     #ifdef __APPLE__
     // prevent SIGPIPE, other platforms support MSG_NOSIGNAL in send() flags
     yes = 1;
@@ -105,10 +102,8 @@ static int lws_bind(lua_State *L) {
         .sin_addr = { .s_addr = inet_addr("127.0.0.1") }
     };
 
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof serv_addr) == -1) {
-        lua_pushstring(L, strerror(errno));
-        return lua_error(L);
-    }
+    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof serv_addr) == -1)
+        return luaL_sockerror(L, "bind");
 
     return 0;
 }
@@ -119,9 +114,8 @@ static int lws_connect(lua_State* L) {
         .ai_family = AF_INET,
         .ai_socktype = SOCK_STREAM
     }, *servinfo, *p;
-    int rv = getaddrinfo(lua_tostring(L, 1), lua_tostring(L, 2), &hints, &servinfo);
-    if (rv != 0)
-        return luaL_error(L, "getaddrinfo: %s", strerror(errno));
+    if (getaddrinfo(lua_tostring(L, 1), lua_tostring(L, 2), &hints, &servinfo) == -1)
+        return luaL_sockerror(L, "getaddrinfo");
 
     for(p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
@@ -138,7 +132,7 @@ static int lws_connect(lua_State* L) {
     freeaddrinfo(servinfo);
 
     if (sockfd <= 0)
-        return luaL_error(L, "connect: %s", strerror(errno));
+        return luaL_sockerror(L, "connect");
     int flag = 1;
     setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
     lua_push_sock(L, sockfd);
@@ -173,7 +167,7 @@ static int lws_select(lua_State *L) {
 
     int rv = select(maxfd + 1, &fdset, NULL, NULL, NULL);
     if (rv == -1)
-        return luaL_error(L, strerror(errno));
+        return luaL_sockerror(L, "select");
 
     lua_pushcfunction(L, lua_backtrace); // push error handler for pcall
 
@@ -413,7 +407,7 @@ static int lws_sock_read(lua_State *L) {
             lws_sock_close(L);
             return luaL_error(L, "OK:Socket closed: %d", sockfd);
         } else if (rv == -1) {
-            return luaL_error(L, "recv: %s", strerror(errno));
+            return luaL_sockerror(L, "recv");
         } else if (lua_gettop(L) < 2)
             break; //TODO Lua string concat
         p += rv;
@@ -427,7 +421,7 @@ static int lws_sock_write(lua_State *L) {
     size_t n;
     const char *payload = lua_tolstring(L, 2, &n);
     int rv = send(fd, payload, n, MSG_NOSIGNAL);
-    if (rv == -1) luaL_error(L, "send: %d: %s: %s\n", fd, strerror(errno), payload);
+    if (rv == -1) luaL_sockerror(L, "send");
     if (rv != n) fprintf(stderr, "Didn't send() all :(\n");
     return 0;
 }
