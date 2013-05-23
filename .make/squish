@@ -19,4 +19,4 @@ ARGV.each do |lua|
   end
 end
 
-print '"'
+puts '"'
