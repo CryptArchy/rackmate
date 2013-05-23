@@ -471,6 +471,11 @@ int luaopen_websocket(lua_State *L) {
     lua_rawset(L, -3);
     lua_setglobal(L, "WebSocketClient");
 
+    #ifdef _WIN32
+    WSADATA wsad;
+    WSAStartup(0x202, &wsad);
+    #endif
+
     return 1;
 }
 
