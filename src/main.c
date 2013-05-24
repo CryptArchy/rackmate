@@ -11,6 +11,7 @@
 
 #ifndef _WIN32
 #include <pwd.h>
+#include <termios.h>
 #include <unistd.h>
 #else
 #include <io.h>
@@ -85,6 +86,50 @@ const char *syspath(int key) {
     }
 }
 #endif
+
+
+static char *getpassword() {
+  #ifdef _WIN32
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(hStdin, &mode);
+    SetConsoleMode(hStdin, mode & (~ENABLE_ECHO_INPUT));
+  #else
+    struct termios oflags, nflags;
+    /* disabling echo */
+    tcgetattr(fileno(stdin), &oflags);
+    nflags = oflags;
+    nflags.c_lflag &= ~ECHO;
+    nflags.c_lflag |= ECHONL;
+    tcsetattr(fileno(stdin), TCSANOW, &nflags);
+  #endif
+
+    char *line = malloc(20), *linep = line;
+    size_t lenmax = 20, len = lenmax;
+    int c;
+    for (;;) {
+        c = fgetc(stdin);
+        if (c == EOF)
+            break;
+        if (--len == 0) {
+            len = lenmax;
+            char *linen = realloc(linep, lenmax *= 2);
+            line = linen + (line - linep);
+            linep = linen;
+        }
+        if ((*line++ = c) == '\n')
+            break;
+    }
+    *(line - 1) = '\0';
+
+  #ifdef _WIN32
+    SetConsoleMode(hStdin, mode);
+  #else
+    tcsetattr(fileno(stdin), TCSANOW, &oflags);
+  #endif
+
+    return linep;
+}
 
 
 //////////////////////////////////////////////////////////////////// lua utils
@@ -230,10 +275,10 @@ pthread_t lua_thread = NULL;
     #ifndef RACKMATE_GUI
         if (argc > 2 && !strncmp(argv[1], "--user", 6)) {
             fprintf(stderr, "Password: ");
-            char buf[128];
-            sp_password = strdup(gets(buf));
+            sp_password = getpassword();
             sp_username = strdup(argv[2]);
             //FIXME won't logout and in as new user if already logged in
+            fprintf(stderr, "Logging in...\n");
         }
     #endif
 
