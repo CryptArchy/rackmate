@@ -112,13 +112,13 @@ int lua_backtrace(lua_State *L) {
 }
 
 #ifndef _WIN32
-static int lua_xp_homedir(lua_State *L) {
+static int lua_os_homedir(lua_State *L) {
     lua_pushstring(L, homepath());
     return 1;
 }
 #endif
 
-static int lua_xp_mkpath(lua_State *L) {
+static int lua_os_mkpath(lua_State *L) {
     const char *utf8 = lua_tostring(L, 1);
     const void *path = lua_topath(L, 1);
   #ifdef _WIN32
@@ -141,7 +141,7 @@ static int lua_xp_mkpath(lua_State *L) {
         return luaL_error(L, "Failed to mkpath: %s: %s", utf8, strerror(errno));
 }
 
-static int lua_xp_sysdir(lua_State *L) {
+static int lua_os_sysdir(lua_State *L) {
 #ifndef _WIN32
     lua_pushstring(L, homepath());
     lua_pushliteral(L, "/");
@@ -172,7 +172,7 @@ static int lua_xp_sysdir(lua_State *L) {
 
 #ifndef _WIN32
 
-static int lua_xp_fork(lua_State *L) {
+static int lua_os_fork(lua_State *L) {
     lua_pushinteger(L, fork());
     return 1;
 }
@@ -240,12 +240,12 @@ pthread_t lua_thread = NULL;
 
         luaL_register(L, LUA_OSLIBNAME, (luaL_reg[]){
           #ifndef _WIN32
-            { "homedir", lua_xp_homedir },
-            { "fork", lua_xp_fork },
-            { "_exit", lua_xp__exit },
+            { "homedir", lua_os_homedir },
+            { "fork", lua_os_fork },
+            { "_exit", lua_os__exit },
           #endif
-            { "mkpath", lua_xp_mkpath },
-            { "sysdir", lua_xp_sysdir },
+            { "mkpath", lua_os_mkpath },
+            { "sysdir", lua_os_sysdir },
             {NULL,  NULL}
         });
 
