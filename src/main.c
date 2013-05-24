@@ -166,15 +166,22 @@ static int lua_os_sysdir(lua_State *L) {
         lua_pushliteral(L, "/Rackit");
 
     lua_concat(L, 2);
+    fprintf(stderr, "%s\n", lua_tostring(L, -1));
 #endif
     return 1;
 }
 
-#ifndef _WIN32
-
 static int lua_os_fork(lua_State *L) {
-    lua_pushinteger(L, fork());
-    return 1;
+  #ifndef _WIN32
+    if (fork() == 0) {
+        lua_pcall(L, 0, 0, 0);
+        _exit(0);
+    }
+  #else
+    // TODO
+    lua_pcall(L, 0, 0, 0);
+  #endif
+    return 0;
 }
 
 #ifdef _WIN32
@@ -241,9 +248,8 @@ pthread_t lua_thread = NULL;
         luaL_register(L, LUA_OSLIBNAME, (luaL_reg[]){
           #ifndef _WIN32
             { "homedir", lua_os_homedir },
-            { "fork", lua_os_fork },
-            { "_exit", lua_os__exit },
           #endif
+            { "fork", lua_os_fork },
             { "mkpath", lua_os_mkpath },
             { "sysdir", lua_os_sysdir },
             {NULL,  NULL}

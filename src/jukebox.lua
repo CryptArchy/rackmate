@@ -48,14 +48,11 @@ function getstate()
 end
 
 local function save()
-   if os.fork() == 0 then
-      pcall(function()
-         local f = io.open(TAPES_JSON_PATH, "w")
-         f:write(JSON.encode(tapes))
-         f:close()
-      end)
-      os._exit()
-   end
+   os.fork(function()
+      local f = io.open(TAPES_JSON_PATH, "w")
+      f:write(JSON.encode(tapes))
+      f:close()
+   end)
 end
 
 --TODO catch errors and send back down WS
