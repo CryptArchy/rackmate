@@ -158,12 +158,20 @@ static int io_tostring (lua_State *L) {
 }
 
 
+extern const wchar_t *lua_topath(lua_State *L, int idx);
+
 static int io_open (lua_State *L) {
+#ifndef _WIN32
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "r");
   FILE **pf = newfile(L);
   *pf = fopen(filename, mode);
   return (*pf == NULL) ? pushresult(L, 0, filename) : 1;
+#else
+  FILE **pf = newfile(L);
+  *pf = _wfopen(lua_topath(L, 1), lua_gettop(L) > 1 ? lua_topath(L, 2) : L"r");
+  return (*pf == NULL) ? pushresult(L, 0, "foo") : 1;
+#endif
 }
 
 

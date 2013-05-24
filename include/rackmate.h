@@ -27,6 +27,16 @@ extern pthread_t lua_thread;
 #define is_lua_thread() 1
 #endif
 
+#ifdef _WIN32
+// returns wide strings on Windows, the type is `char *` on all platforms
+// so the code is not an ifdef mess. The value at index is REPLACED with
+// the 16 bit unicode wide string version, so keep a copy if you need the
+// utf8 version.
+extern const wchar_t *lua_topath(lua_State *L, int idx);
+#else
+#define lua_topath lua_tostring
+#endif
+
 #ifdef RACKMATE_GUI
 extern int lua_thread_loop();
 #endif

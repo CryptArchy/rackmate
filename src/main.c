@@ -13,10 +13,11 @@
 #include <pwd.h>
 #include <unistd.h>
 #else
-#include <direct.h>
+#include <io.h>
 #include <shlobj.h>
 #include <wchar.h>
-#define mkdir(x, y) _mkdir(x)
+#define stat(x, y) _wstat((const wchar_t *)x, (struct _stat*)y)
+#define access(x, y) _waccess((const wchar_t *)x, y)
 #endif
 
 #if __STRICT_ANSI__ && __GNUC__
@@ -27,12 +28,13 @@
 
 
 //////////////////////////////////////////////////////////////////////// utils
+#ifndef _WIN32
 static bool mkpath(const char *path) {
-    char opath[4096]; //TODO use Lua so any length is okay! Or maybe C99 variable length arrays
-    strncpy(opath, path, sizeof(opath));
-    size_t len = strlen(opath);
-    if (opath[len - 1] == '/')
-        opath[len - 1] = '\0';
+    size_t n = strlen(path);
+    char opath[n];
+    strcpy(opath, path);
+    if (opath[n - 1] == '/')
+        opath[n - 1] = '\0';
     for (char *p = opath; *p; p++)
         if (*p == '/') {
             *p = '\0';
@@ -41,6 +43,22 @@ static bool mkpath(const char *path) {
         }
     return mkdir(opath, S_IRWXU) == 0;
 }
+#else
+static bool mkpath(const wchar_t *path) {
+    size_t n = wcslen(path);
+    wchar_t opath[n + 1];
+    wcscpy(opath, path);
+    if (opath[n - 1] == L'/')
+        opath[n - 1] = L'\0';
+    for (wchar_t *p = opath; *p; p++)
+        if (*p == L'/') {
+            *p = L'\0';
+            CreateDirectoryW(opath, NULL);
+            *p = L'/';
+        }
+    return CreateDirectoryW(opath, NULL);
+}
+#endif
 
 #ifndef _WIN32
 const char *homepath() {
@@ -101,46 +119,73 @@ static int lua_xp_homedir(lua_State *L) {
 #endif
 
 static int lua_xp_mkpath(lua_State *L) {
-    const char *path = lua_tostring(L, 1);
+    const char *utf8 = lua_tostring(L, 1);
+    const void *path = lua_topath(L, 1);
+  #ifdef _WIN32
+    // strangely if the path is terminated with a forward-slash Win32 stat
+    // pretends the directory doesn't exist. Win32: buggy POS
+    size_t n = wcslen(path);
+    wchar_t wpath[n + 1];
+    wcscpy(wpath, path);
+    if (wpath[--n] == L'/') {
+        wpath[n] = L'\0';
+        path = wpath;
+    }
+  #endif
     struct stat s;
     int rv = stat(path, &s);
-    if ((rv == -1 && errno == ENOENT && mkpath(path)) || (rv == 0 && s.st_mode & S_IFDIR && access(path, R_OK | X_OK | W_OK) == 0)) {
+    if ((rv == -1 && errno == ENOENT && mkpath(path)) || (rv == 0 && s.st_mode & S_IFDIR)) {
         lua_pushboolean(L, true);
         return 1;
     } else
-        return luaL_error(L, "Failed to mkpath: %s: %s", path, strerror(errno));
+        return luaL_error(L, "Failed to mkpath: %s: %s", utf8, strerror(errno));
 }
 
 static int lua_xp_sysdir(lua_State *L) {
 #ifndef _WIN32
     lua_pushstring(L, homepath());
-    lua_pushstring(L, "/");
+    lua_pushliteral(L, "/");
     lua_pushstring(L, syspath(lua_tonumber(L, 1)));
     lua_concat(L, 3);
 #else
-    // we get the short path as it is always ASCII and Lua is no good with UTF16
-    wchar_t longpath[MAX_PATH];
-    SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, longpath);
-    wchar_t shortpath[1024];
-    GetShortPathNameW(longpath, shortpath, sizeof(shortpath));
-    size_t n = wcslen(shortpath);
-    char ascii[n];
-    for (int x = 0; x < n; ++x)
-        ascii[x] = shortpath[x*2];
-    lua_pushlstring(L, ascii, n);
+    int const CSIDL = lua_tonumber(L, 1) == 0 ? CSIDL_LOCAL_APPDATA : CSIDL_APPDATA;
+
+    wchar_t wpath[MAX_PATH];
+    SHGetFolderPathW(NULL, CSIDL, NULL, 0, wpath);
+
+    for (int x = 0; x < wcslen(wpath); ++x)
+        if (wpath[x] == L'\\') wpath[x] = L'/';
+
+    size_t n = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, NULL, 0, NULL, NULL);
+    char utf8path[n];
+    WideCharToMultiByte(CP_UTF8, 0, wpath, -1, utf8path, n, NULL, NULL);
+    lua_pushlstring(L, utf8path, n - 1);
+    if (lua_tonumber(L, 1) == 2)
+        lua_pushliteral(L, "/Rackit/Rackmate");
+    else
+        lua_pushliteral(L, "/Rackit");
+
+    lua_concat(L, 2);
 #endif
     return 1;
 }
 
 #ifndef _WIN32
+
 static int lua_xp_fork(lua_State *L) {
     lua_pushinteger(L, fork());
     return 1;
 }
 
-static int lua_xp__exit(lua_State *L) {
-    _exit(lua_tonumber(L, 1));
-    return 0; // never happens
+#ifdef _WIN32
+const wchar_t *lua_topath(lua_State *L, int idx) {
+    const char *in = lua_tostring(L, idx);
+    size_t n = MultiByteToWideChar(CP_UTF8, 0, in, -1, NULL, 0);
+    wchar_t out[n];
+    MultiByteToWideChar(CP_UTF8, 0, in, -1, out, n);
+    lua_pushlstring(L, (char *)out, (n-1)*2);
+    lua_replace(L, idx < 0 ? idx - 1 : idx);
+    return (const wchar_t *)lua_tostring(L, idx);
 }
 #endif
 
