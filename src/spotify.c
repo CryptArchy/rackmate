@@ -360,7 +360,7 @@ static int lua_spotify_login(lua_State *L) {          assert(is_lua_thread());
             .user_agent = "Rackmate",
             .callbacks = &session_callbacks,
             .initially_unload_playlists = false, // don't waste RAM
-            NULL
+            .dont_save_metadata_for_playlists = true
         };
 
         HERR(sp_session_create(&spconfig, &session));
