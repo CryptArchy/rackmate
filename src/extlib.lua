@@ -17,7 +17,8 @@ function string.startsWith(s1, s2)
 end
 
 local function mk(sysdirkey, uid)
-   local d = os.sysdir(sysdirkey)..'/'..(uid or '')
+   local d = os.sysdir(sysdirkey)
+   if uid then d = d..'/'..uid end
    os.mkpath(d)
    return d
 end
