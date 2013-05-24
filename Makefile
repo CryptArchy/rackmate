@@ -60,12 +60,14 @@ $(OUTDIR)/%.o: %.c
 
 
 ################################################################## directories
-DIRS := $(sort $(dir $(OBJS))) .make/include .make/include/rackit Rackmate.app/Contents Rackmate.app/Contents/MacOS Rackmate.app/Contents/Resources
+# we strip trailing / because otherwise GNU make gets confused and rebuilds
+# the directories everytime on Windows
+DIRS := $(sort $(patsubst %/,%,$(dir $(OBJS)))) .make/include .make/include/rackit Rackmate.app/Contents Rackmate.app/Contents/MacOS Rackmate.app/Contents/Resources
 define mkdir
 $(1):
 	$(MKDIR) -p $(1)
 endef
-$(foreach o, $(OBJS), $(eval $(o): | $(dir $(o))))
+$(foreach o, $(OBJS), $(eval $(o): | $(patsubst %/,%,$(dir $(o)))))
 $(foreach d, $(DIRS), $(eval $(call mkdir, $(d))))
 
 
