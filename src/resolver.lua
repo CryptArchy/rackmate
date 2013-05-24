@@ -3,10 +3,10 @@ local _ = require'underscore'
 module(...)
 
 local function levenshtein(string1, string2)
-   local str1, str2, distance = {}, {}, {};
-   str1.len, str2.len = string.len(string1), string.len(string2);
-   string.gsub(string1, "(.)", function(s) table.insert(str1, s); end);
-   string.gsub(string2, "(.)", function(s) table.insert(str2, s); end);
+   local str1, str2, distance = {}, {}, {}
+   str1.len, str2.len = string.len(string1), string.len(string2)
+   string.gsub(string1, "(.)", function(s) table.insert(str1, s) end)
+   string.gsub(string2, "(.)", function(s) table.insert(str2, s) end)
 
    for i = 0, str1.len do
       distance[i] = {}
@@ -19,10 +19,9 @@ local function levenshtein(string1, string2)
 
    for i = 1, str1.len do
       for j = 1, str2.len do
-         local tmpdist = 1;
-         if(str1[i-1] == str2[j-1]) then tmpdist = 0; end
-         distance[i][j] = math.min(
-         distance[i-1][j] + 1, distance[i][j-1]+1, distance[i-1][j-1] + tmpdist);
+         local tmpdist = 1
+         if(str1[i-1] == str2[j-1]) then tmpdist = 0 end
+         distance[i][j] = math.min(distance[i-1][j] + 1, distance[i][j-1]+1, distance[i-1][j-1] + tmpdist)
       end
    end
    return distance[str1.len][str2.len];
