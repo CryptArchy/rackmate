@@ -13,6 +13,11 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+// we only use the asserts in here on Mac for testing on Windows compile fails
+#define assert(x)
+#endif
+
 static int lua_spotify_stop(lua_State *L);
 
 #define E_LUA_PCALL(p1, p2, p3) \

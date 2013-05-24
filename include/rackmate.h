@@ -24,7 +24,7 @@ extern void tellmate(const char *what);
 extern pthread_t lua_thread;
 #define is_lua_thread() (pthread_self() == lua_thread)
 #else
-#define is_lua_thread() 1
+#define is_lua_thread()
 #endif
 
 #ifdef _WIN32
